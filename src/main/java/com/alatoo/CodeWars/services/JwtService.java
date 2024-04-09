@@ -49,11 +49,11 @@ public class JwtService {
         byte[] keyBytes = Decoders.BASE64.decode(secretKey);
         return Keys.hmacShaKeyFor(keyBytes);
     }
-    private Boolean isTokenValid(String token, UserDetails userDetails){
+    public Boolean isTokenValid(String token, UserDetails userDetails){
         final String username = extractUsername(token);
         return (username.equals(userDetails.getUsername()) && !isTokenExpired(token));
     }
-    private Boolean isTokenExpired(String token){
+    public Boolean isTokenExpired(String token){
         return extractExpiration(token).before(new Date());
     }
     private <T> T extractClaim(String token, Function<Claims, T> claimsResolver){
@@ -68,10 +68,10 @@ public class JwtService {
                 .parseClaimsJws(token)
                 .getBody();
     }
-    private String extractUsername(String token){
+    public String extractUsername(String token){
         return extractClaim(token, Claims::getSubject);
     }
-    private Date extractExpiration(String token){
+    public Date extractExpiration(String token){
         return extractClaim(token, Claims::getExpiration);
     }
 }

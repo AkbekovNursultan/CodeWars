@@ -22,6 +22,8 @@ public class User implements UserDetails {
     private String email;
     private Boolean emailVerified;
     private Role role;
+    private Integer createdTasks;
+    private Integer answeredTasks;
     private String verificationCode;
 
     @Override

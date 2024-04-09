@@ -48,7 +48,8 @@ public class AuthServiceImpl implements AuthService {
         if(!containsRole(request.getRole()))
             throw new BadRequestException("Unknown role.");
         user.setRole(Role.valueOf(request.getRole().toUpperCase()));
-
+        user.setAnsweredTasks(0);
+        user.setCreatedTasks(0);
         String code = createVerificationCode();
         user.setVerificationCode(code);
         sendVerificationCode(request.getEmail(), code);
