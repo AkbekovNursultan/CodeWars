@@ -26,6 +26,8 @@ public class User implements UserDetails {
     private Integer answeredTasks;
     private String verificationCode;
 
+    @OneToOne(cascade = CascadeType.ALL)
+    private Image image;
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
         return null;

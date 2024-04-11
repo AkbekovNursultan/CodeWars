@@ -1,11 +1,37 @@
 package com.alatoo.CodeWars.controller;
 
+import com.alatoo.CodeWars.dto.image.ImageResponse;
+import com.alatoo.CodeWars.repositories.UserRepository;
+import com.alatoo.CodeWars.services.AuthService;
+import com.alatoo.CodeWars.services.ImageService;
+import org.springframework.core.io.ByteArrayResource;
+import com.alatoo.CodeWars.services.UserService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/user")
 public class UserController {
+    private final UserRepository userRepository;
+    private final UserService userService;
+    private final AuthService authService;
+    private final ImageService imageService;
+    @GetMapping("/image")
+    public ImageResponse showImage(@RequestHeader("Authorization") String token){
+        return imageService.showByUser(token);
+    }
+    @PostMapping("/image/add")
+    public String upload(@RequestHeader("Authorization") String token, @RequestParam(value = "file") MultipartFile file){
+        imageService.upload(token, file);
+        return "Done";
+    }
+    @DeleteMapping("/image/delete")
+    public String deleteImage(@RequestHeader("Auhtorization") String token){
+        return imageService.deleteFile(token);
+    }
+
+
 }

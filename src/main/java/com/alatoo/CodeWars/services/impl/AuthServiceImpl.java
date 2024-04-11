@@ -83,6 +83,7 @@ public class AuthServiceImpl implements AuthService {
             throw new BadRequestException("Incorrect verification code.");
         user.get().setEmailVerified(true);
         user.get().setVerificationCode(null);
+        user.get().setImage(null);
         userRepository.save(user.get());
         return "Email successfully connected.";
     }
