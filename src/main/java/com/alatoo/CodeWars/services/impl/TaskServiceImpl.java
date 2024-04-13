@@ -1,6 +1,7 @@
 package com.alatoo.CodeWars.services.impl;
 
 import com.alatoo.CodeWars.dto.task.NewTaskRequest;
+import com.alatoo.CodeWars.dto.task.TaskDetailsResponse;
 import com.alatoo.CodeWars.entities.Difficulty;
 import com.alatoo.CodeWars.entities.Task;
 import com.alatoo.CodeWars.entities.TaskFile;
@@ -9,11 +10,12 @@ import com.alatoo.CodeWars.enums.Role;
 import com.alatoo.CodeWars.exceptions.BadRequestException;
 import com.alatoo.CodeWars.exceptions.BlockedException;
 import com.alatoo.CodeWars.exceptions.NotFoundException;
+import com.alatoo.CodeWars.mappers.TaskMapper;
 import com.alatoo.CodeWars.repositories.DifficultyRepository;
 import com.alatoo.CodeWars.repositories.TaskFileRepository;
 import com.alatoo.CodeWars.repositories.TaskRepository;
 import com.alatoo.CodeWars.services.AuthService;
-import com.alatoo.CodeWars.services.UserService;
+import com.alatoo.CodeWars.services.TaskService;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.model.PutObjectRequest;
 import lombok.RequiredArgsConstructor;
@@ -31,15 +33,15 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
-
 @Service
 @Slf4j
 @RequiredArgsConstructor
-public class UserServiceImpl implements UserService {
-    private final TaskRepository taskRepository;
+public class TaskServiceImpl implements TaskService {
     private final AuthService authService;
+    private final TaskRepository taskRepository;
     private final DifficultyRepository difficultyRepository;
     private final TaskFileRepository taskFileRepository;
+    private final TaskMapper taskMapper;
 
     @Value("${application.bucket.name}")
     private String bucketName;
@@ -51,7 +53,7 @@ public class UserServiceImpl implements UserService {
     @Override
     public String addTask(String token, NewTaskRequest request) {
         User user = authService.getUserFromToken(token);
-        if(user.getRole().equals(Role.ADMIN))
+        if(!user.getRole().equals(Role.ADMIN))
             throw new BlockedException("no");
         if(request.getName() == null)
             throw new BadRequestException("Field 'name' must be filled!");
@@ -65,21 +67,19 @@ public class UserServiceImpl implements UserService {
         task.setDescription(request.getDescription());
         task.setDifficulty(difficulty.get());
         task.setAdded_user(user);
-        task.setVerified(false);
+        task.setVerified(true);
         taskRepository.saveAndFlush(task);
-        return "The task addition was applied.\n It needs to be accepted by admins.";
+        return "The task was added successfully;";
     }
 
     @Override
     public String addTaskFile(String token, Long id, MultipartFile file) {
         User user = authService.getUserFromToken(token);
-        if(user.getRole().equals(Role.ADMIN))
+        if(!user.getRole().equals(Role.ADMIN))
             throw new BlockedException("no");
         Optional<Task> task = taskRepository.findById(id);
         if(task.isEmpty())
-            throw new NotFoundException("Task not found", HttpStatus.NOT_FOUND);
-        if(!task.get().getVerified())
-            throw new BadRequestException("Task hasn't been accepted yet, Wait.");
+            throw new NotFoundException("404", HttpStatus.NOT_FOUND);
         if(file != null) {
             TaskFile taskFile = saveFile(task.get(), file);
             List<TaskFile> taskFiles = new ArrayList<>();
@@ -89,6 +89,18 @@ public class UserServiceImpl implements UserService {
         }
         return "Done";
     }
+
+    @Override
+    public TaskDetailsResponse showById(String token, Long id) {
+        User user = authService.getUserFromToken(token);
+        Optional<Task> task = taskRepository.findById(id);
+        if(task.isEmpty())
+            throw new NotFoundException("Task not found", HttpStatus.NOT_FOUND);
+        if(user.getRole().equals(Role.USER) && !task.get().getVerified())
+            throw new NotFoundException("Task not found", HttpStatus.NOT_FOUND);
+        return taskMapper.taskDetails(task.get());
+    }
+
     private TaskFile saveFile(Task task , MultipartFile file) {
         TaskFile taskFile = new TaskFile();
         File fileObj = convertMultiPartFileToFile(file);

@@ -2,6 +2,7 @@ package com.alatoo.CodeWars.services.impl;
 
 import com.alatoo.CodeWars.dto.auth.LoginRequest;
 import com.alatoo.CodeWars.dto.auth.LoginResponse;
+import com.alatoo.CodeWars.dto.auth.RecoveryRequest;
 import com.alatoo.CodeWars.dto.auth.RegisterRequest;
 import com.alatoo.CodeWars.entities.User;
 import com.alatoo.CodeWars.enums.Role;
@@ -15,6 +16,7 @@ import net.minidev.json.JSONObject;
 import net.minidev.json.parser.JSONParser;
 import net.minidev.json.parser.ParseException;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -29,9 +31,9 @@ import java.util.*;
 @RequiredArgsConstructor
 public class AuthServiceImpl implements AuthService {
     private final UserRepository userRepository;
-    private PasswordEncoder passwordEncoder;
+    private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
-    private AuthenticationManager authenticationManager;
+    private final AuthenticationManager authenticationManager;
     private final JavaMailSender mailSender;
 
     @Value("${spring.mail.username}")
@@ -40,6 +42,8 @@ public class AuthServiceImpl implements AuthService {
     public String register(RegisterRequest request) {
         if(userRepository.findByUsername(request.getUsername()).isPresent())
             throw new BadCredentialsException("User with this username already exists.");
+        if(userRepository.findByEmail(request.getEmail()).isPresent())
+            throw new BadCredentialsException("This email is already connected.");
         User user = new User();
         user.setUsername(request.getUsername());
         user.setEmail(request.getEmail());
@@ -48,9 +52,10 @@ public class AuthServiceImpl implements AuthService {
         if(!containsRole(request.getRole()))
             throw new BadRequestException("Unknown role.");
         user.setRole(Role.valueOf(request.getRole().toUpperCase()));
-        user.setAnsweredTasks(0);
-        user.setCreatedTasks(0);
-        String code = createVerificationCode();
+        if(Role.valueOf(request.getRole()).equals(Role.USER)){
+            user.setPoints(0);
+        }
+        String code = createCode();
         user.setVerificationCode(code);
         sendVerificationCode(request.getEmail(), code);
         userRepository.saveAndFlush(user);
@@ -65,7 +70,7 @@ public class AuthServiceImpl implements AuthService {
         mailSender.send(message);
 
     }
-    private String createVerificationCode(){
+    private String createCode(){
         String code = "";
         Random random = new Random();
         for(int k = 0; k < 6; k++) {
@@ -84,6 +89,7 @@ public class AuthServiceImpl implements AuthService {
         user.get().setEmailVerified(true);
         user.get().setVerificationCode(null);
         user.get().setImage(null);
+        user.get().setBanned(false);
         userRepository.save(user.get());
         return "Email successfully connected.";
     }
@@ -91,15 +97,44 @@ public class AuthServiceImpl implements AuthService {
     @Override
     public LoginResponse login(LoginRequest request) {
         Optional<User> user = userRepository.findByUsername(request.getUsername());
-        if(user.isEmpty())
+        if(user.isEmpty() || !user.get().getEmailVerified())
             throw new BadRequestException("User not found.");
         try {
             authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(request.getUsername(),request.getPassword()));
-
+            System.out.println("2");
         }catch (org.springframework.security.authentication.BadCredentialsException e){
             throw new BadRequestException("Invalid password.");
         }
         return convertToResponse(user);
+    }
+
+    @Override
+    public String recovery(String email) {
+        Optional<User> user = userRepository.findByEmail(email);
+        String code = createCode();
+        if(user.isEmpty())
+            throw new NotFoundException("Account with this email doesn't exist!");
+        SimpleMailMessage message = new SimpleMailMessage();
+        message.setFrom("nursultan20052003@gmail.com");
+        message.setTo(email);
+        message.setText("This is link for recovery your password: http://localhost:8080/auth/password_recovery?code=" + code + "\n\nDon't share it!!!");
+        message.setSubject("Password recovery.");
+        mailSender.send(message);
+        user.get().setRecoveryCode(code);
+        userRepository.save(user.get());
+        return "Message was sent to your email.";
+    }
+    @Override
+    public String recoverPassword(String code, RecoveryRequest request) {
+        Optional<User> user = userRepository.findByRecoveryCode(code);
+        if(passwordEncoder.matches(request.getNewPassword(), (user.get().getPassword())))
+            throw new BadRequestException("This password is already used.");
+        if(!request.getNewPassword().equals(request.getConfirmPassword()))
+            throw new BadRequestException("The passwords doesn't match.");
+        user.get().setPassword(passwordEncoder.encode(request.getNewPassword()));
+        userRepository.save(user.get());
+
+        return "Password successfully changed";
     }
 
     @Override
