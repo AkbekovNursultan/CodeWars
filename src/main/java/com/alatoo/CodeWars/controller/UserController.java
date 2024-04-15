@@ -46,8 +46,8 @@ public class UserController {
         return taskService.showById(token, task_id);
     }
     @GetMapping("/task/{task_id}/download")
-    public ResponseEntity<ByteArrayResource> downloadTaskFile(@RequestHeader("Authorization") String token, @PathVariable Long task_id){
-        List <String> fileNames = taskService.getFileNames(token, task_id);
+    public ResponseEntity<ByteArrayResource> downloadTaskFile(@PathVariable Long task_id){
+        List <String> fileNames = taskService.getFileNames(task_id);
         byte[] data = taskService.downloadFile(fileNames);
         ByteArrayResource resource = new ByteArrayResource(data);
         return ResponseEntity.ok()
@@ -61,7 +61,11 @@ public class UserController {
         return userService.addTask(token, request);
     }
     @PostMapping("/task/{task_id}/file")
-    public String addTaskFile(@RequestHeader("Authorizaition") String token,@PathVariable Long task_id , @RequestParam(value = "file") MultipartFile file){
+    public String addTaskFile(@RequestHeader("Authorization") String token,@PathVariable Long task_id , @RequestParam(value = "file") MultipartFile file){
         return userService.addTaskFile(token, task_id, file);
+    }
+    @DeleteMapping("/task/{task_id}/delete_files")
+    public String deleteFiles(@PathVariable Long task_id){
+        return taskService.deleteTaskFiles(task_id);
     }
 }

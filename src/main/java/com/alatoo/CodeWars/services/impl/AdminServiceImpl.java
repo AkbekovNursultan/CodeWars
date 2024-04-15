@@ -35,6 +35,7 @@ public class AdminServiceImpl implements AdminService {
 
     @Override
     public String addDifficulty(String token, NewDifficultyRequest request) {
+
         User user = authService.getUserFromToken(token);
         if(!user.getRole().equals(Role.ADMIN))
             throw new BlockedException("no");

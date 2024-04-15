@@ -111,8 +111,7 @@ public class TaskServiceImpl implements TaskService {
     }
 
     @Override
-    public List<String> getFileNames(String token, Long taskId) {
-        User user = authService.getUserFromToken(token);
+    public List<String> getFileNames( Long taskId) {
         Optional<Task> task = taskRepository.findById(taskId);
         if(task.isEmpty())
             throw new NotFoundException("Not found", HttpStatus.NOT_FOUND);
@@ -120,11 +119,28 @@ public class TaskServiceImpl implements TaskService {
         for(TaskFile file : task.get().getTaskFiles()){
             names.add(file.getName());
         }
-        return null;
+        return names;
+    }
+
+    @Override
+    public String deleteTaskFiles(Long taskId) {
+        Optional<Task> task = taskRepository.findById(taskId);
+        if(task.isEmpty())
+            throw new NotFoundException("Task not found.", HttpStatus.NOT_FOUND);
+        List<TaskFile> files = task.get().getTaskFiles();
+        task.get().setTaskFiles(null);
+        for(TaskFile taskFile : files){
+            taskFile.setTask(null);
+            taskFileRepository.delete(taskFile);
+        }
+        taskRepository.saveAndFlush(task.get());
+        return "Done";
     }
 
     @Override
     public byte[] downloadFile(List<String> fileNames) {
+        if(fileNames.isEmpty())
+            throw new NotFoundException("No files", HttpStatus.NOT_FOUND);
         for(String fileName : fileNames) {
             S3Object s3Object = s3Client.getObject(bucketName, fileName);
             S3ObjectInputStream inputStream = s3Object.getObjectContent();

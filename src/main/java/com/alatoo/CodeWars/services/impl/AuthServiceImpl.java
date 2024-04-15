@@ -176,3 +176,5 @@ public class AuthServiceImpl implements AuthService {
         return false;
     }
 }
+// Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+// String currentPrincipalName = authentication.getName();

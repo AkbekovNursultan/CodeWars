@@ -87,7 +87,12 @@ public class UserServiceImpl implements UserService {
         if(file != null) {
             TaskFile taskFile = saveFile(task.get(), file);
             List<TaskFile> taskFiles = new ArrayList<>();
+            if(task.get().getTaskFiles() != null)
+                taskFiles = task.get().getTaskFiles();
             taskFiles.add(taskFile);
+            for(TaskFile taskFile1 : taskFiles){
+                taskFileRepository.saveAndFlush(taskFile1);
+            }
             task.get().setTaskFiles(taskFiles);
             taskRepository.saveAndFlush(task.get());
         }

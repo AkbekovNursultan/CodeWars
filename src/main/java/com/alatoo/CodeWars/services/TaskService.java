@@ -17,5 +17,7 @@ public interface TaskService {
 
     List<TaskResponse> showAllTasks(String token);
 
-    List<String> getFileNames(String token, Long taskId);
+    List<String> getFileNames(Long taskId);
+
+    String deleteTaskFiles(Long task_id);
 }

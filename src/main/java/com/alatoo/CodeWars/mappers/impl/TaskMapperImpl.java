@@ -2,8 +2,10 @@ package com.alatoo.CodeWars.mappers.impl;
 
 import com.alatoo.CodeWars.dto.task.NewTaskRequest;
 import com.alatoo.CodeWars.dto.task.TaskDetailsResponse;
+import com.alatoo.CodeWars.dto.task.TaskFileDtoResponse;
 import com.alatoo.CodeWars.dto.task.TaskResponse;
 import com.alatoo.CodeWars.entities.Task;
+import com.alatoo.CodeWars.entities.TaskFile;
 import com.alatoo.CodeWars.mappers.TaskMapper;
 import com.alatoo.CodeWars.repositories.TaskRepository;
 import lombok.RequiredArgsConstructor;
@@ -38,7 +40,15 @@ public class TaskMapperImpl implements TaskMapper {
         response.setId(task.getId());
         response.setName(task.getDifficulty().getName());
         response.setDescription(task.getDescription());
-        response.setTaskFiles(task.getTaskFiles());
+        List<TaskFileDtoResponse> taskFileDtoResponses = new ArrayList<>();
+        for(TaskFile taskFile : task.getTaskFiles()){
+            TaskFileDtoResponse taskFileDtoResponse = new TaskFileDtoResponse();
+            taskFileDtoResponse.setId(taskFile.getId());
+            taskFileDtoResponse.setName(taskFile.getName());
+            taskFileDtoResponse.setPath(taskFile.getPath());
+            taskFileDtoResponses.add(taskFileDtoResponse);
+        }
+        response.setTaskFiles(taskFileDtoResponses);
         response.setPoints(task.getDifficulty().getPoints());
         response.setSolved(task.getAnswered_users().size());
         response.setVerified(task.getVerified());

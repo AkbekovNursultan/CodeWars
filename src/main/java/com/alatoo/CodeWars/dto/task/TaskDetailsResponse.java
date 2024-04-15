@@ -14,7 +14,7 @@ public class TaskDetailsResponse {
     private Long id;
     private String name;
     private String description;
-    private List<TaskFile> taskFiles;
+    private List<TaskFileDtoResponse> taskFiles;
     private String difficulty;
     private Integer points;
     private Integer solved;
