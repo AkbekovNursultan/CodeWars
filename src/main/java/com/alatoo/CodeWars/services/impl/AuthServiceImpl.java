@@ -8,6 +8,7 @@ import com.alatoo.CodeWars.entities.User;
 import com.alatoo.CodeWars.enums.Role;
 import com.alatoo.CodeWars.exceptions.BadRequestException;
 import com.alatoo.CodeWars.exceptions.BadCredentialsException;
+import com.alatoo.CodeWars.exceptions.BlockedException;
 import com.alatoo.CodeWars.repositories.UserRepository;
 import com.alatoo.CodeWars.services.AuthService;
 import com.alatoo.CodeWars.services.JwtService;
@@ -99,6 +100,8 @@ public class AuthServiceImpl implements AuthService {
         Optional<User> user = userRepository.findByUsername(request.getUsername());
         if(user.isEmpty() || !user.get().getEmailVerified())
             throw new BadRequestException("User not found.");
+        if(user.get().getBanned())
+            throw new BlockedException("You were banned. GG.");
         try {
             authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(request.getUsername(),request.getPassword()));
             System.out.println("2");
@@ -114,6 +117,8 @@ public class AuthServiceImpl implements AuthService {
         String code = createCode();
         if(user.isEmpty())
             throw new NotFoundException("Account with this email doesn't exist!");
+        if(user.get().getBanned())
+            throw new BlockedException("You were banned.");
         SimpleMailMessage message = new SimpleMailMessage();
         message.setFrom("nursultan20052003@gmail.com");
         message.setTo(email);
@@ -127,11 +132,14 @@ public class AuthServiceImpl implements AuthService {
     @Override
     public String recoverPassword(String code, RecoveryRequest request) {
         Optional<User> user = userRepository.findByRecoveryCode(code);
+        if(user.isEmpty())
+            throw new BadRequestException("Invalid code");
         if(passwordEncoder.matches(request.getNewPassword(), (user.get().getPassword())))
             throw new BadRequestException("This password is already used.");
-        if(!request.getNewPassword().equals(request.getConfirmPassword()))
+        if(!request.getNewPassword().equals(request.getConfirmPassword()) && user.get().getRecoveryCode() != null)
             throw new BadRequestException("The passwords doesn't match.");
         user.get().setPassword(passwordEncoder.encode(request.getNewPassword()));
+        user.get().setRecoveryCode(null);
         userRepository.save(user.get());
 
         return "Password successfully changed";

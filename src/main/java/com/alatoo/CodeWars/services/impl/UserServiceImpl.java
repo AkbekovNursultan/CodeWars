@@ -51,6 +51,8 @@ public class UserServiceImpl implements UserService {
     @Override
     public String addTask(String token, NewTaskRequest request) {
         User user = authService.getUserFromToken(token);
+        if(user.getBanned())
+            throw new BlockedException("BANNED! unlucky m8");
         if(user.getRole().equals(Role.ADMIN))
             throw new BlockedException("no");
         if(request.getName() == null)
@@ -73,6 +75,8 @@ public class UserServiceImpl implements UserService {
     @Override
     public String addTaskFile(String token, Long id, MultipartFile file) {
         User user = authService.getUserFromToken(token);
+        if(user.getBanned())
+            throw new BlockedException("BANNED! unlucky m8");
         if(user.getRole().equals(Role.ADMIN))
             throw new BlockedException("no");
         Optional<Task> task = taskRepository.findById(id);

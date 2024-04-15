@@ -50,6 +50,8 @@ public class ImageServiceImpl implements ImageService {
         User user = authService.getUserFromToken(token);
         if(user.getRole() != Role.USER)
             throw new BadRequestException("You can't do this.");
+        if(user.getBanned())
+            throw new BlockedException("BANNED! unlucky m8");
         if(user.getImage() != null) {
             deleteFile(token);
             imageRepository.deleteById(user.getImage().getId());
@@ -78,23 +80,25 @@ public class ImageServiceImpl implements ImageService {
         return imageRepository.saveAndFlush(image1);
     }
 
-    @Override
-    public byte[] downloadFile(String fileName) {
-        S3Object s3Object = s3Client.getObject(bucketName, fileName);
-        S3ObjectInputStream inputStream = s3Object.getObjectContent();
-        try {
-            byte[] content = IOUtils.toByteArray(inputStream);
-            return content;
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-        return null;
-    }
+//    @Override
+//    public byte[] downloadFile(String fileName) {
+//        S3Object s3Object = s3Client.getObject(bucketName, fileName);
+//        S3ObjectInputStream inputStream = s3Object.getObjectContent();
+//        try {
+//            byte[] content = IOUtils.toByteArray(inputStream);
+//            return content;
+//        } catch (IOException e) {
+//            e.printStackTrace();
+//        }
+//        return null;
+//    }
 
     @Override
     public ImageResponse showByUser(String token) {
         User user = authService.getUserFromToken(token);
         Optional<Image> image = imageRepository.findByUser(user);
+        if(user.getBanned())
+            throw new BlockedException("BANNED! unlucky m8");
         if(image.isEmpty())
             throw new NotFoundException("Image not found!", HttpStatus.NOT_FOUND);
         return imageMapper.toDetailDto(image.get());
@@ -104,6 +108,8 @@ public class ImageServiceImpl implements ImageService {
         User user = authService.getUserFromToken(token);
         if(user.getRole() != Role.USER)
             throw new BadRequestException("You can't do this.");
+        if(user.getBanned())if(user.getBanned())
+            throw new BlockedException("BANNED! unlucky m8");
         Optional<Image> image = imageRepository.findByUser(user);
         System.out.println(image);
         if(image.isEmpty())

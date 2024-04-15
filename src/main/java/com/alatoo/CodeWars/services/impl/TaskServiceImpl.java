@@ -2,6 +2,7 @@ package com.alatoo.CodeWars.services.impl;
 
 import com.alatoo.CodeWars.dto.task.NewTaskRequest;
 import com.alatoo.CodeWars.dto.task.TaskDetailsResponse;
+import com.alatoo.CodeWars.dto.task.TaskResponse;
 import com.alatoo.CodeWars.entities.Difficulty;
 import com.alatoo.CodeWars.entities.Task;
 import com.alatoo.CodeWars.entities.TaskFile;
@@ -18,6 +19,9 @@ import com.alatoo.CodeWars.services.AuthService;
 import com.alatoo.CodeWars.services.TaskService;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.model.PutObjectRequest;
+import com.amazonaws.services.s3.model.S3Object;
+import com.amazonaws.services.s3.model.S3ObjectInputStream;
+import com.amazonaws.util.IOUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -99,6 +103,39 @@ public class TaskServiceImpl implements TaskService {
         if(user.getRole().equals(Role.USER) && !task.get().getVerified())
             throw new NotFoundException("Task not found", HttpStatus.NOT_FOUND);
         return taskMapper.taskDetails(task.get());
+    }
+    @Override
+    public List<TaskResponse> showAllTasks(String token){
+        User user = authService.getUserFromToken(token);
+        return taskMapper.toDtoS();
+    }
+
+    @Override
+    public List<String> getFileNames(String token, Long taskId) {
+        User user = authService.getUserFromToken(token);
+        Optional<Task> task = taskRepository.findById(taskId);
+        if(task.isEmpty())
+            throw new NotFoundException("Not found", HttpStatus.NOT_FOUND);
+        List<String> names = new ArrayList<>();
+        for(TaskFile file : task.get().getTaskFiles()){
+            names.add(file.getName());
+        }
+        return null;
+    }
+
+    @Override
+    public byte[] downloadFile(List<String> fileNames) {
+        for(String fileName : fileNames) {
+            S3Object s3Object = s3Client.getObject(bucketName, fileName);
+            S3ObjectInputStream inputStream = s3Object.getObjectContent();
+            try {
+                byte[] content = IOUtils.toByteArray(inputStream);
+                return content;
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+        return null;
     }
 
     private TaskFile saveFile(Task task , MultipartFile file) {

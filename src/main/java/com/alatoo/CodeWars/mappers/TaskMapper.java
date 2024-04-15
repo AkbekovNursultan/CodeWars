@@ -10,4 +10,6 @@ public interface TaskMapper {
     List<TaskResponse> newTasksToDtoS();
 
     TaskDetailsResponse taskDetails(Task task);
+
+    List<TaskResponse> toDtoS();
 }

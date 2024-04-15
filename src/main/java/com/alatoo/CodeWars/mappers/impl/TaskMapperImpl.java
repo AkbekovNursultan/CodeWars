@@ -44,4 +44,18 @@ public class TaskMapperImpl implements TaskMapper {
         response.setVerified(task.getVerified());
         return response;
     }
+
+    @Override
+    public List<TaskResponse> toDtoS() {
+        List<TaskResponse> responseList = new ArrayList<>();
+        List<Task> allTasks = taskRepository.findAll();
+        for(Task task : allTasks){
+            TaskResponse response = new TaskResponse();
+            response.setId(task.getId());
+            response.setName(task.getName());
+            response.setDifficulty(task.getDifficulty().getName());
+            responseList.add(response);
+        }
+        return responseList;
+    }
 }

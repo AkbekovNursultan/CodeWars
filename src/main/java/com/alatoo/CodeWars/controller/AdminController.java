@@ -38,8 +38,22 @@ public class AdminController {
     public List<TaskResponse> showAllOffers(@RequestHeader("Authorization") String token){
         return adminService.showAllOffers(token);
     }
+    @PostMapping("/approve/{task_id}")
+    public String approveTask(@RequestHeader("Authorization") String token, @PathVariable Long task_id){
+        return adminService.approveTask(token, task_id);
+    }
+
     @DeleteMapping("/delete/{task_id}")
     public String deleteTask(@RequestHeader("Authorization") String token, @PathVariable Long task_id){
         return adminService.delete(token, task_id);
+    }
+
+    @PutMapping("/{user_id}/ban")
+    public String banUser(@RequestHeader("Authorization") String token, @PathVariable Long user_id){
+        return adminService.banUser(token, user_id);
+    }
+    @PutMapping("/{user_id}/unban")
+    public String unbanUser(@RequestHeader("Authorization") String token, @PathVariable Long user_id){
+        return adminService.unbanUser(token, user_id);
     }
 }

@@ -14,4 +14,10 @@ public interface AdminService {
     List<TaskResponse> showAllOffers(String token);
 
     String delete(String token, Long task_id);
+
+    String approveTask(String token, Long taskId);
+
+    String banUser(String token, Long userId);
+
+    String unbanUser(String token, Long userId);
 }
