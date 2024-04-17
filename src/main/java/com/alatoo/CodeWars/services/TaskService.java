@@ -11,13 +11,15 @@ public interface TaskService {
     String addTask(String token, NewTaskRequest request);
 
     String addTaskFile(String token, Long task_id, MultipartFile file);
-    byte[] downloadFile(List<String> fileNames);
+    byte[] downloadFile(String fileName);
 
     TaskDetailsResponse showById(String token, Long task_id);
 
     List<TaskResponse> showAllTasks(String token);
 
-    List<String> getFileNames(Long taskId);
+    String getFileName(Long taskId, Long fileId);
 
     String deleteTaskFiles(Long task_id);
+
+    String attempt(String token, Long taskId, String answer);
 }

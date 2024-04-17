@@ -1,6 +1,6 @@
 package com.alatoo.CodeWars.services.impl;
 
-import com.alatoo.CodeWars.dto.image.ImageResponse;
+import com.alatoo.CodeWars.dto.user.ImageResponse;
 import com.alatoo.CodeWars.entities.User;
 import com.alatoo.CodeWars.enums.Role;
 import com.alatoo.CodeWars.mappers.ImageMapper;
@@ -11,9 +11,6 @@ import com.alatoo.CodeWars.services.ImageService;
 import com.alatoo.CodeWars.exceptions.*;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.model.PutObjectRequest;
-import com.amazonaws.services.s3.model.S3Object;
-import com.amazonaws.services.s3.model.S3ObjectInputStream;
-import com.amazonaws.util.IOUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -50,8 +47,7 @@ public class ImageServiceImpl implements ImageService {
         User user = authService.getUserFromToken(token);
         if(user.getRole() != Role.USER)
             throw new BadRequestException("You can't do this.");
-        if(user.getBanned())
-            throw new BlockedException("BANNED! unlucky m8");
+        authService.checkAccess(user);
         if(user.getImage() != null) {
             deleteFile(token);
             imageRepository.deleteById(user.getImage().getId());
@@ -94,11 +90,13 @@ public class ImageServiceImpl implements ImageService {
 //    }
 
     @Override
-    public ImageResponse showByUser(String token) {
+    public ImageResponse showByUser(String token, Long userId) {
         User user = authService.getUserFromToken(token);
-        Optional<Image> image = imageRepository.findByUser(user);
-        if(user.getBanned())
-            throw new BlockedException("BANNED! unlucky m8");
+        Optional<User> user1 = userRepository.findById(userId);
+        authService.checkAccess(user);
+        if(user1.isEmpty())
+            throw new NotFoundException("User not found.", HttpStatus.NOT_FOUND);
+        Optional<Image> image = imageRepository.findByUser(user1.get());
         if(image.isEmpty())
             throw new NotFoundException("Image not found!", HttpStatus.NOT_FOUND);
         return imageMapper.toDetailDto(image.get());
@@ -108,8 +106,7 @@ public class ImageServiceImpl implements ImageService {
         User user = authService.getUserFromToken(token);
         if(user.getRole() != Role.USER)
             throw new BadRequestException("You can't do this.");
-        if(user.getBanned())if(user.getBanned())
-            throw new BlockedException("BANNED! unlucky m8");
+        authService.checkAccess(user);
         Optional<Image> image = imageRepository.findByUser(user);
         System.out.println(image);
         if(image.isEmpty())

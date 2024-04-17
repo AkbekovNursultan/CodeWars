@@ -1,6 +1,5 @@
 package com.alatoo.CodeWars.mappers.impl;
 
-import com.alatoo.CodeWars.dto.task.NewTaskRequest;
 import com.alatoo.CodeWars.dto.task.TaskDetailsResponse;
 import com.alatoo.CodeWars.dto.task.TaskFileDtoResponse;
 import com.alatoo.CodeWars.dto.task.TaskResponse;
@@ -23,7 +22,7 @@ public class TaskMapperImpl implements TaskMapper {
         List<Task> allTasks = taskRepository.findAll();
         List<TaskResponse> newTasks = new ArrayList<>();
         for(Task task : allTasks){
-            if(!task.getVerified()){
+            if(!task.getApproved()){
                 TaskResponse response = new TaskResponse();
                 response.setId(task.getId());
                 response.setName(task.getName());
@@ -51,7 +50,7 @@ public class TaskMapperImpl implements TaskMapper {
         response.setTaskFiles(taskFileDtoResponses);
         response.setPoints(task.getDifficulty().getPoints());
         response.setSolved(task.getAnswered_users().size());
-        response.setVerified(task.getVerified());
+        response.setVerified(task.getApproved());
         return response;
     }
 

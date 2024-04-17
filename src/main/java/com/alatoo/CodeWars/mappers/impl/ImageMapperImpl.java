@@ -1,6 +1,6 @@
 package com.alatoo.CodeWars.mappers.impl;
 
-import com.alatoo.CodeWars.dto.image.ImageResponse;
+import com.alatoo.CodeWars.dto.user.ImageResponse;
 import com.alatoo.CodeWars.entities.Image;
 import com.alatoo.CodeWars.mappers.ImageMapper;
 import lombok.RequiredArgsConstructor;

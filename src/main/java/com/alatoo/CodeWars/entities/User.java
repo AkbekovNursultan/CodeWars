@@ -29,6 +29,7 @@ public class User implements UserDetails {
     private String recoveryCode;
     private Integer points;
     private Boolean banned;
+    private Integer rank;
 
     @OneToOne(cascade = CascadeType.ALL)
     private Image image;

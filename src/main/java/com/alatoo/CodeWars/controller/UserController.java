@@ -1,9 +1,10 @@
 package com.alatoo.CodeWars.controller;
 
-import com.alatoo.CodeWars.dto.image.ImageResponse;
+import com.alatoo.CodeWars.dto.user.ImageResponse;
 import com.alatoo.CodeWars.dto.task.NewTaskRequest;
 import com.alatoo.CodeWars.dto.task.TaskDetailsResponse;
 import com.alatoo.CodeWars.dto.task.TaskResponse;
+import com.alatoo.CodeWars.dto.user.UserInfoResponse;
 import com.alatoo.CodeWars.repositories.UserRepository;
 import com.alatoo.CodeWars.services.ImageService;
 import com.alatoo.CodeWars.services.TaskService;
@@ -20,41 +21,24 @@ import java.util.List;
 @RequiredArgsConstructor
 @RequestMapping("/user")
 public class UserController {
-    private final UserRepository userRepository;
     private final UserService userService;
     private final ImageService imageService;
     private final TaskService taskService;
-    @GetMapping("/image")
-    public ImageResponse showImage(@RequestHeader("Authorization") String token){
-        return imageService.showByUser(token);
+    @GetMapping("/profile/{user_id}")
+    public UserInfoResponse userInfo(@RequestHeader("Authorization") String token, @PathVariable Long user_id){
+        return userService.showUserInfo(token, user_id);
     }
-    @PostMapping("/image/add")
+    @GetMapping("/profile/{user_id}/image")
+    public ImageResponse showImage(@RequestHeader("Authorization") String token, @PathVariable Long user_id){
+        return imageService.showByUser(token, user_id);
+    }
+    @PostMapping("/profile/image/add")
     public String upload(@RequestHeader("Authorization") String token, @RequestParam(value = "file") MultipartFile file){
-        imageService.upload(token, file);
-        return "Done";
+        return imageService.upload(token, file);
     }
-    @DeleteMapping("/image/delete")
+    @DeleteMapping("/profile/image/delete")
     public String deleteImage(@RequestHeader("Authorization") String token){
         return imageService.deleteFile(token);
-    }
-    @GetMapping("/tasks")
-    public List<TaskResponse> showAllTasks(@RequestHeader("Authorization") String token){
-        return taskService.showAllTasks(token);
-    }
-    @GetMapping("/task/{task_id}")
-    public TaskDetailsResponse showTaskDetails(@RequestHeader("Authorization") String token, @PathVariable Long task_id){
-        return taskService.showById(token, task_id);
-    }
-    @GetMapping("/task/{task_id}/download")
-    public ResponseEntity<ByteArrayResource> downloadTaskFile(@PathVariable Long task_id){
-        List <String> fileNames = taskService.getFileNames(task_id);
-        byte[] data = taskService.downloadFile(fileNames);
-        ByteArrayResource resource = new ByteArrayResource(data);
-        return ResponseEntity.ok()
-                .contentLength(data.length)
-                .header("Content-type", "application/octet-stream")
-                .header("Content-disposition", "attachment; filenames\"" + fileNames +"\"")
-                .body(resource);
     }
     @PostMapping("/task/add")
     public String addTask(@RequestHeader("Authorization") String token, @RequestBody NewTaskRequest request){

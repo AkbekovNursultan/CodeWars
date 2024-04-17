@@ -30,10 +30,6 @@ public class AdminController {
     public String addTaskFile(@RequestHeader("Authorization") String token,@PathVariable Long task_id , @RequestParam(value = "file") MultipartFile file){
         return taskService.addTaskFile(token, task_id, file);
     }
-    @GetMapping("/show/{task_id}")
-    public TaskDetailsResponse showTaskDetails(@RequestHeader("Authorization") String token, @PathVariable Long task_id){
-        return taskService.showById(token, task_id);
-    }
     @GetMapping("/show/task_offers")
     public List<TaskResponse> showAllOffers(@RequestHeader("Authorization") String token){
         return adminService.showAllOffers(token);

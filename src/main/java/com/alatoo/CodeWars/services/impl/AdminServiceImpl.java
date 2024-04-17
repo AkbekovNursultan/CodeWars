@@ -1,7 +1,6 @@
 package com.alatoo.CodeWars.services.impl;
 
 import com.alatoo.CodeWars.dto.task.NewDifficultyRequest;
-import com.alatoo.CodeWars.dto.task.NewTaskRequest;
 import com.alatoo.CodeWars.dto.task.TaskResponse;
 import com.alatoo.CodeWars.entities.*;
 import com.alatoo.CodeWars.enums.Role;
@@ -19,7 +18,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -86,9 +84,9 @@ public class AdminServiceImpl implements AdminService {
         if(!user.getRole().equals(Role.ADMIN))
             throw new BlockedException("no");
         Optional<Task> task = taskRepository.findById(taskId);
-        if(task.isEmpty() || task.get().getVerified())
+        if(task.isEmpty() || task.get().getApproved())
             throw new NotFoundException("Task not found.", HttpStatus.NOT_FOUND);
-        task.get().setVerified(true);
+        task.get().setApproved(true);
         taskRepository.saveAndFlush(task.get());
         return "Task was successfully approved.";
     }

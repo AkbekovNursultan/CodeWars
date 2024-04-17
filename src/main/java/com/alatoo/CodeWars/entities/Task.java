@@ -1,6 +1,7 @@
 package com.alatoo.CodeWars.entities;
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -16,7 +17,8 @@ public class Task {
     private Long id;
     private String name;
     private String description;
-    private Boolean verified;
+    private String answer;
+    private Boolean approved;
     @ManyToOne
     private Difficulty difficulty;
     @ManyToMany(cascade = CascadeType.ALL)

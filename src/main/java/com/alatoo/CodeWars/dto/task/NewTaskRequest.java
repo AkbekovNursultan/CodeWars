@@ -8,5 +8,6 @@ import lombok.Setter;
 public class NewTaskRequest {
     private String name;
     private String description;
+    private String answer;
     private String difficulty;
 }

@@ -1,6 +1,7 @@
 package com.alatoo.CodeWars.services.impl;
 
 import com.alatoo.CodeWars.dto.task.NewTaskRequest;
+import com.alatoo.CodeWars.dto.user.UserInfoResponse;
 import com.alatoo.CodeWars.entities.Difficulty;
 import com.alatoo.CodeWars.entities.Task;
 import com.alatoo.CodeWars.entities.TaskFile;
@@ -9,9 +10,11 @@ import com.alatoo.CodeWars.enums.Role;
 import com.alatoo.CodeWars.exceptions.BadRequestException;
 import com.alatoo.CodeWars.exceptions.BlockedException;
 import com.alatoo.CodeWars.exceptions.NotFoundException;
+import com.alatoo.CodeWars.mappers.UserMapper;
 import com.alatoo.CodeWars.repositories.DifficultyRepository;
 import com.alatoo.CodeWars.repositories.TaskFileRepository;
 import com.alatoo.CodeWars.repositories.TaskRepository;
+import com.alatoo.CodeWars.repositories.UserRepository;
 import com.alatoo.CodeWars.services.AuthService;
 import com.alatoo.CodeWars.services.UserService;
 import com.amazonaws.services.s3.AmazonS3;
@@ -40,6 +43,8 @@ public class UserServiceImpl implements UserService {
     private final AuthService authService;
     private final DifficultyRepository difficultyRepository;
     private final TaskFileRepository taskFileRepository;
+    private final UserRepository userRepository;
+    private final UserMapper userMapper;
 
     @Value("${application.bucket.name}")
     private String bucketName;
@@ -47,12 +52,20 @@ public class UserServiceImpl implements UserService {
 
     @Autowired
     private AmazonS3 s3Client;
+    @Override
+    public UserInfoResponse showUserInfo(String token, Long userId) {
+        User user = authService.getUserFromToken(token);
+        authService.checkAccess(user);
+        Optional<User> user1 = userRepository.findById(userId);
+        if(user1.isEmpty())
+            throw new NotFoundException("User not found.", HttpStatus.NOT_FOUND);
+        return userMapper.toDto(user1.get());
+    }
 
     @Override
     public String addTask(String token, NewTaskRequest request) {
         User user = authService.getUserFromToken(token);
-        if(user.getBanned())
-            throw new BlockedException("BANNED! unlucky m8");
+        authService.checkAccess(user);
         if(user.getRole().equals(Role.ADMIN))
             throw new BlockedException("no");
         if(request.getName() == null)
@@ -67,7 +80,7 @@ public class UserServiceImpl implements UserService {
         task.setDescription(request.getDescription());
         task.setDifficulty(difficulty.get());
         task.setAdded_user(user);
-        task.setVerified(false);
+        task.setApproved(false);
         taskRepository.saveAndFlush(task);
         return "The task addition was applied.\n It needs to be accepted by admins.";
     }
@@ -75,14 +88,13 @@ public class UserServiceImpl implements UserService {
     @Override
     public String addTaskFile(String token, Long id, MultipartFile file) {
         User user = authService.getUserFromToken(token);
-        if(user.getBanned())
-            throw new BlockedException("BANNED! unlucky m8");
+        authService.checkAccess(user);
         if(user.getRole().equals(Role.ADMIN))
             throw new BlockedException("no");
         Optional<Task> task = taskRepository.findById(id);
-        if(task.isEmpty())
+        if(task.isEmpty() || !user.getCreatedTasks().contains(task.get()))
             throw new NotFoundException("Task not found", HttpStatus.NOT_FOUND);
-        if(!task.get().getVerified())
+        if(!task.get().getApproved())
             throw new BadRequestException("Task hasn't been accepted yet, Wait.");
         if(file != null) {
             TaskFile taskFile = saveFile(task.get(), file);
@@ -98,6 +110,7 @@ public class UserServiceImpl implements UserService {
         }
         return "Done";
     }
+
     private TaskFile saveFile(Task task , MultipartFile file) {
         TaskFile taskFile = new TaskFile();
         File fileObj = convertMultiPartFileToFile(file);

@@ -15,6 +15,7 @@ import com.alatoo.CodeWars.mappers.TaskMapper;
 import com.alatoo.CodeWars.repositories.DifficultyRepository;
 import com.alatoo.CodeWars.repositories.TaskFileRepository;
 import com.alatoo.CodeWars.repositories.TaskRepository;
+import com.alatoo.CodeWars.repositories.UserRepository;
 import com.alatoo.CodeWars.services.AuthService;
 import com.alatoo.CodeWars.services.TaskService;
 import com.amazonaws.services.s3.AmazonS3;
@@ -24,6 +25,7 @@ import com.amazonaws.services.s3.model.S3ObjectInputStream;
 import com.amazonaws.util.IOUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.http.protocol.HTTP;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
@@ -46,6 +48,7 @@ public class TaskServiceImpl implements TaskService {
     private final DifficultyRepository difficultyRepository;
     private final TaskFileRepository taskFileRepository;
     private final TaskMapper taskMapper;
+    private final UserRepository userRepository;
 
     @Value("${application.bucket.name}")
     private String bucketName;
@@ -59,10 +62,13 @@ public class TaskServiceImpl implements TaskService {
         User user = authService.getUserFromToken(token);
         if(!user.getRole().equals(Role.ADMIN))
             throw new BlockedException("no");
+        authService.checkAccess(user);
         if(request.getName() == null)
             throw new BadRequestException("Field 'name' must be filled!");
         if(request.getDescription() == null)
             throw new BadRequestException("Field 'description' must be filled!");
+        if(request.getAnswer() == null)
+            throw new BadRequestException("Parameter 'Answer' mustn't be empty.");
         Optional<Difficulty> difficulty = difficultyRepository.findByName(request.getDifficulty().toUpperCase(Locale.ROOT));
         if(difficulty.isEmpty())
             throw new BadRequestException("Difficulty type:" + request.getDifficulty() + "doesn't exist!");
@@ -70,8 +76,9 @@ public class TaskServiceImpl implements TaskService {
         task.setName(request.getName());
         task.setDescription(request.getDescription());
         task.setDifficulty(difficulty.get());
+        task.setAnswer(request.getAnswer());
         task.setAdded_user(user);
-        task.setVerified(true);
+        task.setApproved(true);
         taskRepository.saveAndFlush(task);
         return "The task was added successfully;";
     }
@@ -81,6 +88,7 @@ public class TaskServiceImpl implements TaskService {
         User user = authService.getUserFromToken(token);
         if(!user.getRole().equals(Role.ADMIN))
             throw new BlockedException("no");
+        authService.checkAccess(user);
         Optional<Task> task = taskRepository.findById(id);
         if(task.isEmpty())
             throw new NotFoundException("404", HttpStatus.NOT_FOUND);
@@ -97,29 +105,36 @@ public class TaskServiceImpl implements TaskService {
     @Override
     public TaskDetailsResponse showById(String token, Long id) {
         User user = authService.getUserFromToken(token);
+        authService.checkAccess(user);
         Optional<Task> task = taskRepository.findById(id);
         if(task.isEmpty())
             throw new NotFoundException("Task not found", HttpStatus.NOT_FOUND);
-        if(user.getRole().equals(Role.USER) && !task.get().getVerified())
+        if(user.getRole().equals(Role.USER) && !task.get().getApproved())
             throw new NotFoundException("Task not found", HttpStatus.NOT_FOUND);
         return taskMapper.taskDetails(task.get());
     }
     @Override
     public List<TaskResponse> showAllTasks(String token){
         User user = authService.getUserFromToken(token);
+        authService.checkAccess(user);
         return taskMapper.toDtoS();
     }
 
     @Override
-    public List<String> getFileNames( Long taskId) {
+    public String getFileName(Long taskId, Long fileId) {
         Optional<Task> task = taskRepository.findById(taskId);
         if(task.isEmpty())
-            throw new NotFoundException("Not found", HttpStatus.NOT_FOUND);
-        List<String> names = new ArrayList<>();
+            throw new NotFoundException("Task Not Found", HttpStatus.NOT_FOUND);
+        String fileName = null;
         for(TaskFile file : task.get().getTaskFiles()){
-            names.add(file.getName());
+            if(file.getId().equals(fileId)){
+                fileName = file.getName();
+            }
         }
-        return names;
+        if(fileName == null){
+            throw new NotFoundException("File Not Found.", HttpStatus.NOT_FOUND);
+        }
+        return fileName;
     }
 
     @Override
@@ -138,18 +153,51 @@ public class TaskServiceImpl implements TaskService {
     }
 
     @Override
-    public byte[] downloadFile(List<String> fileNames) {
-        if(fileNames.isEmpty())
+    public String attempt(String token, Long taskId, String answer) {
+        User user = authService.getUserFromToken(token);
+        authService.checkAccess(user);
+        Optional<Task> task = taskRepository.findById(taskId);
+        if(task.isEmpty())
+            throw new NotFoundException("Task not found.", HttpStatus.NOT_FOUND);
+        if(user.getCreatedTasks().contains(task.get()))
+            throw new BadRequestException("You can't answer to your own task");
+        if(user.getAnsweredTasks().contains(task.get()))
+            throw new BadRequestException("You have already done this task");
+        if(task.get().getAnswer().equals(answer)){
+            List<Task> tasks = new ArrayList<>();
+            if(!user.getAnsweredTasks().isEmpty())
+               tasks = user.getAnsweredTasks();
+            tasks.add(task.get());
+            user.setPoints(user.getPoints() + task.get().getDifficulty().getPoints());
+            String message = "Congratulations! You have found a correct answer!\n" + task.get().getDifficulty().getPoints() + " points earned";
+            int previousRank = user.getRank();
+            user.setRank(user.getPoints()/1000);
+            if(previousRank < user.getRank())
+                message = message + "\nYour rank has been increased!\n" + previousRank + "--->" + user.getRank();
+            user.setAnsweredTasks(tasks);
+            List<User> users = new ArrayList<>();
+            if(!task.get().getAnswered_users().isEmpty())
+                users = task.get().getAnswered_users();
+            task.get().setAnswered_users(users);
+            taskRepository.saveAndFlush(task.get());
+            userRepository.saveAndFlush(user);
+            return message;
+        }
+
+        return "Incorrect answer.\nTry again.";
+    }
+
+    @Override
+    public byte[] downloadFile(String fileName) {
+        if(fileName == null)
             throw new NotFoundException("No files", HttpStatus.NOT_FOUND);
-        for(String fileName : fileNames) {
-            S3Object s3Object = s3Client.getObject(bucketName, fileName);
-            S3ObjectInputStream inputStream = s3Object.getObjectContent();
-            try {
-                byte[] content = IOUtils.toByteArray(inputStream);
-                return content;
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
+        S3Object s3Object = s3Client.getObject(bucketName, fileName);
+        S3ObjectInputStream inputStream = s3Object.getObjectContent();
+        try {
+            byte[] content = IOUtils.toByteArray(inputStream);
+            return content;
+        } catch (IOException e) {
+            e.printStackTrace();
         }
         return null;
     }

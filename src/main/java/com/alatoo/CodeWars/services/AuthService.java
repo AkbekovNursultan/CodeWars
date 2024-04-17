@@ -18,4 +18,6 @@ public interface AuthService {
     String recovery(String email);
 
     String recoverPassword(String code, RecoveryRequest request);
+
+    void checkAccess(User user);
 }

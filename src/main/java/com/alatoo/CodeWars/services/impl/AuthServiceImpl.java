@@ -55,6 +55,7 @@ public class AuthServiceImpl implements AuthService {
         user.setRole(Role.valueOf(request.getRole().toUpperCase()));
         if(Role.valueOf(request.getRole()).equals(Role.USER)){
             user.setPoints(0);
+            user.setRank(0);
         }
         String code = createCode();
         user.setVerificationCode(code);
@@ -100,11 +101,9 @@ public class AuthServiceImpl implements AuthService {
         Optional<User> user = userRepository.findByUsername(request.getUsername());
         if(user.isEmpty() || !user.get().getEmailVerified())
             throw new BadRequestException("User not found.");
-        if(user.get().getBanned())
-            throw new BlockedException("You were banned. GG.");
+        checkAccess(user.get());
         try {
             authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(request.getUsername(),request.getPassword()));
-            System.out.println("2");
         }catch (org.springframework.security.authentication.BadCredentialsException e){
             throw new BadRequestException("Invalid password.");
         }
@@ -117,8 +116,7 @@ public class AuthServiceImpl implements AuthService {
         String code = createCode();
         if(user.isEmpty())
             throw new NotFoundException("Account with this email doesn't exist!");
-        if(user.get().getBanned())
-            throw new BlockedException("You were banned.");
+        checkAccess(user.get());
         SimpleMailMessage message = new SimpleMailMessage();
         message.setFrom("nursultan20052003@gmail.com");
         message.setTo(email);
@@ -134,6 +132,7 @@ public class AuthServiceImpl implements AuthService {
         Optional<User> user = userRepository.findByRecoveryCode(code);
         if(user.isEmpty())
             throw new BadRequestException("Invalid code");
+        checkAccess(user.get());
         if(passwordEncoder.matches(request.getNewPassword(), (user.get().getPassword())))
             throw new BadRequestException("This password is already used.");
         if(!request.getNewPassword().equals(request.getConfirmPassword()) && user.get().getRecoveryCode() != null)
@@ -174,6 +173,11 @@ public class AuthServiceImpl implements AuthService {
                 return true;
         }
         return false;
+    }
+
+    public void checkAccess(User user){
+        if(user.getBanned())
+            throw new BlockedException("You were banned.");
     }
 }
 // Authentication authentication = SecurityContextHolder.getContext().getAuthentication();

@@ -1,4 +1,4 @@
-package com.alatoo.CodeWars.dto.image;
+package com.alatoo.CodeWars.dto.user;
 
 import lombok.Getter;
 import lombok.Setter;
