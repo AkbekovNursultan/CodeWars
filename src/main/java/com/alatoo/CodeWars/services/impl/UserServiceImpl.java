@@ -1,11 +1,8 @@
 package com.alatoo.CodeWars.services.impl;
 
 import com.alatoo.CodeWars.dto.task.NewTaskRequest;
-import com.alatoo.CodeWars.dto.user.UserInfoResponse;
-import com.alatoo.CodeWars.entities.Difficulty;
-import com.alatoo.CodeWars.entities.Task;
-import com.alatoo.CodeWars.entities.TaskFile;
-import com.alatoo.CodeWars.entities.User;
+import com.alatoo.CodeWars.dto.user.UserDtoResponse;
+import com.alatoo.CodeWars.entities.*;
 import com.alatoo.CodeWars.enums.Role;
 import com.alatoo.CodeWars.exceptions.BadRequestException;
 import com.alatoo.CodeWars.exceptions.BlockedException;
@@ -32,7 +29,6 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.Optional;
 
 @Service
@@ -53,7 +49,7 @@ public class UserServiceImpl implements UserService {
     @Autowired
     private AmazonS3 s3Client;
     @Override
-    public UserInfoResponse showUserInfo(String token, Long userId) {
+    public UserDtoResponse showUserInfo(String token, Long userId) {
         User user = authService.getUserFromToken(token);
         authService.checkAccess(user);
         Optional<User> user1 = userRepository.findById(userId);
@@ -72,15 +68,26 @@ public class UserServiceImpl implements UserService {
             throw new BadRequestException("Field 'name' must be filled!");
         if(request.getDescription() == null)
             throw new BadRequestException("Field 'description' must be filled!");
-        Optional<Difficulty> difficulty = difficultyRepository.findByName(request.getDifficulty().toUpperCase(Locale.ROOT));
+        Optional<Difficulty> difficulty = difficultyRepository.findByName(request.getDifficulty().toUpperCase());
         if(difficulty.isEmpty())
             throw new BadRequestException("Difficulty type:" + request.getDifficulty() + "doesn't exist!");
+        if(request.getHints().size() > 3)
+            throw new BadRequestException("Max number of hints is 3.");
         Task task = new Task();
         task.setName(request.getName());
         task.setDescription(request.getDescription());
         task.setDifficulty(difficulty.get());
         task.setAdded_user(user);
         task.setApproved(false);
+        task = taskRepository.save(task);
+        List<Hint> newHints = new ArrayList<>();
+        for(String text : request.getHints()){
+            Hint hint = new Hint();
+            hint.setTask(task);
+            hint.setHint(text);
+            newHints.add(hint);
+        }
+        task.setHints(newHints);
         taskRepository.saveAndFlush(task);
         return "The task addition was applied.\n It needs to be accepted by admins.";
     }
@@ -108,6 +115,20 @@ public class UserServiceImpl implements UserService {
             task.get().setTaskFiles(taskFiles);
             taskRepository.saveAndFlush(task.get());
         }
+        return "Done";
+    }
+    @Override
+    public String deleteTaskFiles(Long taskId) {
+        Optional<Task> task = taskRepository.findById(taskId);
+        if(task.isEmpty())
+            throw new NotFoundException("Task not found.", HttpStatus.NOT_FOUND);
+        List<TaskFile> files = task.get().getTaskFiles();
+        task.get().setTaskFiles(null);
+        for(TaskFile taskFile : files){
+            taskFile.setTask(null);
+            taskFileRepository.delete(taskFile);
+        }
+        taskRepository.saveAndFlush(task.get());
         return "Done";
     }
 

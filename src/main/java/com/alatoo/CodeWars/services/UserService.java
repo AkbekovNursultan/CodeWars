@@ -1,7 +1,7 @@
 package com.alatoo.CodeWars.services;
 
 import com.alatoo.CodeWars.dto.task.NewTaskRequest;
-import com.alatoo.CodeWars.dto.user.UserInfoResponse;
+import com.alatoo.CodeWars.dto.user.UserDtoResponse;
 import org.springframework.web.multipart.MultipartFile;
 
 public interface UserService {
@@ -9,5 +9,7 @@ public interface UserService {
 
     String addTaskFile(String token, Long task_id, MultipartFile file);
 
-    UserInfoResponse showUserInfo(String token, Long userId);
+    UserDtoResponse showUserInfo(String token, Long userId);
+
+    String deleteTaskFiles(Long taskId);
 }

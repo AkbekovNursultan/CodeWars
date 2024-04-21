@@ -18,8 +18,9 @@ public interface TaskService {
     List<TaskResponse> showAllTasks(String token);
 
     String getFileName(Long taskId, Long fileId);
-
-    String deleteTaskFiles(Long task_id);
-
     String attempt(String token, Long taskId, String answer);
+
+    String getHint(String token, Long taskId);
+
+    List<String> getHints(String token, Long taskId);
 }

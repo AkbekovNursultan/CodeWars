@@ -3,19 +3,13 @@ package com.alatoo.CodeWars.services.impl;
 import com.alatoo.CodeWars.dto.task.NewTaskRequest;
 import com.alatoo.CodeWars.dto.task.TaskDetailsResponse;
 import com.alatoo.CodeWars.dto.task.TaskResponse;
-import com.alatoo.CodeWars.entities.Difficulty;
-import com.alatoo.CodeWars.entities.Task;
-import com.alatoo.CodeWars.entities.TaskFile;
-import com.alatoo.CodeWars.entities.User;
+import com.alatoo.CodeWars.entities.*;
 import com.alatoo.CodeWars.enums.Role;
 import com.alatoo.CodeWars.exceptions.BadRequestException;
 import com.alatoo.CodeWars.exceptions.BlockedException;
 import com.alatoo.CodeWars.exceptions.NotFoundException;
 import com.alatoo.CodeWars.mappers.TaskMapper;
-import com.alatoo.CodeWars.repositories.DifficultyRepository;
-import com.alatoo.CodeWars.repositories.TaskFileRepository;
-import com.alatoo.CodeWars.repositories.TaskRepository;
-import com.alatoo.CodeWars.repositories.UserRepository;
+import com.alatoo.CodeWars.repositories.*;
 import com.alatoo.CodeWars.services.AuthService;
 import com.alatoo.CodeWars.services.TaskService;
 import com.amazonaws.services.s3.AmazonS3;
@@ -25,7 +19,6 @@ import com.amazonaws.services.s3.model.S3ObjectInputStream;
 import com.amazonaws.util.IOUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.http.protocol.HTTP;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
@@ -49,6 +42,7 @@ public class TaskServiceImpl implements TaskService {
     private final TaskFileRepository taskFileRepository;
     private final TaskMapper taskMapper;
     private final UserRepository userRepository;
+    private final HintRepository hintRepository;
 
     @Value("${application.bucket.name}")
     private String bucketName;
@@ -72,11 +66,22 @@ public class TaskServiceImpl implements TaskService {
         Optional<Difficulty> difficulty = difficultyRepository.findByName(request.getDifficulty().toUpperCase(Locale.ROOT));
         if(difficulty.isEmpty())
             throw new BadRequestException("Difficulty type:" + request.getDifficulty() + "doesn't exist!");
+        if(request.getHints().size() > 3)
+            throw new BadRequestException("Max number of hints is 3.");
         Task task = new Task();
         task.setName(request.getName());
         task.setDescription(request.getDescription());
         task.setDifficulty(difficulty.get());
         task.setAnswer(request.getAnswer());
+        List<Hint> newHints = new ArrayList<>();
+        for(String text : request.getHints()){
+            Hint hint = new Hint();
+            hint.setTask(task);
+            hint.setHint(text);
+            newHints.add(hint);
+            hintRepository.save(hint);
+        }
+        task.setHints(newHints);
         task.setAdded_user(user);
         task.setApproved(true);
         taskRepository.saveAndFlush(task);
@@ -136,22 +141,6 @@ public class TaskServiceImpl implements TaskService {
         }
         return fileName;
     }
-
-    @Override
-    public String deleteTaskFiles(Long taskId) {
-        Optional<Task> task = taskRepository.findById(taskId);
-        if(task.isEmpty())
-            throw new NotFoundException("Task not found.", HttpStatus.NOT_FOUND);
-        List<TaskFile> files = task.get().getTaskFiles();
-        task.get().setTaskFiles(null);
-        for(TaskFile taskFile : files){
-            taskFile.setTask(null);
-            taskFileRepository.delete(taskFile);
-        }
-        taskRepository.saveAndFlush(task.get());
-        return "Done";
-    }
-
     @Override
     public String attempt(String token, Long taskId, String answer) {
         User user = authService.getUserFromToken(token);
@@ -161,20 +150,27 @@ public class TaskServiceImpl implements TaskService {
             throw new NotFoundException("Task not found.", HttpStatus.NOT_FOUND);
         if(user.getCreatedTasks().contains(task.get()))
             throw new BadRequestException("You can't answer to your own task");
-        if(user.getAnsweredTasks().contains(task.get()))
+        if(user.getSolvedTasks().contains(task.get()))
             throw new BadRequestException("You have already done this task");
         if(task.get().getAnswer().equals(answer)){
             List<Task> tasks = new ArrayList<>();
-            if(!user.getAnsweredTasks().isEmpty())
-               tasks = user.getAnsweredTasks();
+            if(!user.getSolvedTasks().isEmpty())
+               tasks = user.getSolvedTasks();
             tasks.add(task.get());
-            user.setPoints(user.getPoints() + task.get().getDifficulty().getPoints());
+            List<Hint> hints = task.get().getHints();
+            List<String> usedHints = new ArrayList<>();
+            for(Hint hint : hints){
+                if(hint.getReceivedUsers().contains(user))
+                    usedHints.add(hint.getHint());
+            }
+            int earnedPoints = task.get().getDifficulty().getPoints() - task.get().getDifficulty().getPoints() * usedHints.size() * 10;
+            user.setPoints(user.getPoints() + earnedPoints);
             String message = "Congratulations! You have found a correct answer!\n" + task.get().getDifficulty().getPoints() + " points earned";
             int previousRank = user.getRank();
             user.setRank(user.getPoints()/1000);
             if(previousRank < user.getRank())
                 message = message + "\nYour rank has been increased!\n" + previousRank + "--->" + user.getRank();
-            user.setAnsweredTasks(tasks);
+            user.setSolvedTasks(tasks);
             List<User> users = new ArrayList<>();
             if(!task.get().getAnswered_users().isEmpty())
                 users = task.get().getAnswered_users();
@@ -185,6 +181,46 @@ public class TaskServiceImpl implements TaskService {
         }
 
         return "Incorrect answer.\nTry again.";
+    }
+
+    @Override
+    public String getHint(String token, Long taskId) {
+        User user = authService.getUserFromToken(token);
+        authService.checkAccess(user);
+        if(user.getRole().equals(Role.ADMIN))
+            throw new BadRequestException("Why?");
+        Optional<Task> task = taskRepository.findById(taskId);
+        if(task.isEmpty())
+            throw new NotFoundException("Task not found.", HttpStatus.NOT_FOUND);
+        List<Hint> hints = new ArrayList<>();
+        for(Hint hint : task.get().getHints()){
+            if(!hint.getReceivedUsers().contains(user))
+                hints.add(hint);
+        }
+        if(hints.isEmpty())
+            return "You have run out of hints.";
+        List<User> receivedUsers = hints.get(0).getReceivedUsers();
+        receivedUsers.add(user);
+        hints.get(0).setReceivedUsers(receivedUsers);
+        hintRepository.save(hints.get(0));
+        return hints.get(0).getHint();
+    }
+
+    @Override
+    public List<String> getHints(String token, Long taskId) {
+        User user = authService.getUserFromToken(token);
+        authService.checkAccess(user);
+        if(user.getRole().equals(Role.ADMIN))
+            throw new BadRequestException("Why?");
+        Optional<Task> task = taskRepository.findById(taskId);
+        if(task.isEmpty())
+            throw new NotFoundException("Task not found.", HttpStatus.NOT_FOUND);
+        List<String> hints = new ArrayList<>();
+        for(Hint hint : task.get().getHints()){
+            if(hint.getReceivedUsers().contains(user))
+                hints.add(hint.getHint());
+        }
+        return hints;
     }
 
     @Override

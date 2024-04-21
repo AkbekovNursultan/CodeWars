@@ -4,6 +4,7 @@ import com.alatoo.CodeWars.dto.task.NewDifficultyRequest;
 import com.alatoo.CodeWars.dto.task.NewTaskRequest;
 import com.alatoo.CodeWars.dto.task.TaskDetailsResponse;
 import com.alatoo.CodeWars.dto.task.TaskResponse;
+import com.alatoo.CodeWars.dto.user.UserResponse;
 import com.alatoo.CodeWars.services.AdminService;
 import com.alatoo.CodeWars.services.TaskService;
 import lombok.RequiredArgsConstructor;
@@ -43,7 +44,10 @@ public class AdminController {
     public String deleteTask(@RequestHeader("Authorization") String token, @PathVariable Long task_id){
         return adminService.delete(token, task_id);
     }
-
+    @GetMapping("/users")
+    public List<UserResponse> allUsers(@RequestHeader("Authorization") String token){
+        return adminService.showAllUsers(token);
+    }
     @PutMapping("/{user_id}/ban")
     public String banUser(@RequestHeader("Authorization") String token, @PathVariable Long user_id){
         return adminService.banUser(token, user_id);

@@ -2,12 +2,14 @@ package com.alatoo.CodeWars.services.impl;
 
 import com.alatoo.CodeWars.dto.task.NewDifficultyRequest;
 import com.alatoo.CodeWars.dto.task.TaskResponse;
+import com.alatoo.CodeWars.dto.user.UserResponse;
 import com.alatoo.CodeWars.entities.*;
 import com.alatoo.CodeWars.enums.Role;
 import com.alatoo.CodeWars.exceptions.BadRequestException;
 import com.alatoo.CodeWars.exceptions.BlockedException;
 import com.alatoo.CodeWars.exceptions.NotFoundException;
 import com.alatoo.CodeWars.mappers.TaskMapper;
+import com.alatoo.CodeWars.mappers.UserMapper;
 import com.alatoo.CodeWars.repositories.DifficultyRepository;
 import com.alatoo.CodeWars.repositories.TaskFileRepository;
 import com.alatoo.CodeWars.repositories.TaskRepository;
@@ -18,6 +20,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -30,6 +33,7 @@ public class AdminServiceImpl implements AdminService {
     private final TaskFileRepository taskFileRepository;
     private final TaskMapper taskMapper;
     private final UserRepository userRepository;
+    private final UserMapper userMapper;
 
     @Override
     public String addDifficulty(String token, NewDifficultyRequest request) {
@@ -66,7 +70,7 @@ public class AdminServiceImpl implements AdminService {
             throw new NotFoundException("Task not found.", HttpStatus.NOT_FOUND);
         task.get().setAdded_user(null);
         task.get().setDifficulty(null);
-        task.get().setAnswered_users(null);
+        task.get().getAnswered_users().clear();
         List<TaskFile> taskFiles = task.get().getTaskFiles();
         if(!taskFiles.isEmpty()) {
             for (TaskFile file : taskFiles) {
@@ -97,7 +101,7 @@ public class AdminServiceImpl implements AdminService {
         if(!admin.getRole().equals(Role.ADMIN))
             throw new BlockedException("no");
         Optional<User> user = userRepository.findById(userId);
-        if(user.isEmpty() || user.get().getRole().equals(Role.ADMIN))
+        if(user.isEmpty() || user.get().getRole().equals(Role.ADMIN) || user.get().getBanned())
             throw new NotFoundException("User not found.", HttpStatus.NOT_FOUND);
         user.get().setBanned(true);
         String name = user.get().getUsername();
@@ -111,11 +115,19 @@ public class AdminServiceImpl implements AdminService {
         if(!admin.getRole().equals(Role.ADMIN))
             throw new BlockedException("no");
         Optional<User> user = userRepository.findById(userId);
-        if(user.isEmpty() || user.get().getRole().equals(Role.ADMIN))
+        if(user.isEmpty() || user.get().getRole().equals(Role.ADMIN) || !user.get().getBanned())
             throw new NotFoundException("User not found.", HttpStatus.NOT_FOUND);
         user.get().setBanned(false);
         String name = user.get().getUsername();
         userRepository.saveAndFlush(user.get());
         return "User - "+ name + " was successfully unbanned.";
+    }
+
+    @Override
+    public List<UserResponse> showAllUsers(String token) {
+        User admin = authService.getUserFromToken(token);
+        if(!admin.getRole().equals(Role.ADMIN))
+            throw new BlockedException("no");
+        return userMapper.allUsers();
     }
 }

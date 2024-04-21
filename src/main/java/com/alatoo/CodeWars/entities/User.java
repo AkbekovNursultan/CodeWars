@@ -33,10 +33,12 @@ public class User implements UserDetails {
 
     @OneToOne(cascade = CascadeType.ALL)
     private Image image;
-    @ManyToMany(cascade = CascadeType.ALL)
-    private List<Task> answeredTasks;
+    @ManyToMany(cascade = CascadeType.ALL, mappedBy = "solved_by")
+    private List<Task> solvedTasks;
     @OneToMany(cascade = CascadeType.ALL)
     private List<Task> createdTasks;
+    @ManyToMany(cascade = CascadeType.ALL)
+    private List<Hint> usedHints;
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {

@@ -14,7 +14,7 @@ import java.util.List;
 @RequestMapping("/task")
 @RequiredArgsConstructor
 public class TaskController {
-    private TaskService taskService;
+    private final TaskService taskService;
     @GetMapping("/all")
     public List<TaskResponse> showAllTasks(@RequestHeader("Authorization") String token){
         return taskService.showAllTasks(token);
@@ -37,5 +37,13 @@ public class TaskController {
     @PostMapping("/{task_id}/answer")
     public String attemptAnswer(@RequestHeader("Authorization") String token, @RequestParam String answer, @PathVariable Long task_id){
         return taskService.attempt(token, task_id, answer);
+    }
+    @GetMapping("/{task_id}/get_hint")
+    public String getHint(@RequestHeader("Authorization") String token, @PathVariable Long task_id){
+        return taskService.getHint(token, task_id);
+    }
+    @GetMapping("/{task_id}/received_hints")
+    public List<String> receivedHints(@RequestHeader("Authorization") String token, @PathVariable Long task_id){
+        return taskService.getHints(token, task_id);
     }
 }

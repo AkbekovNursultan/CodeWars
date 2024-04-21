@@ -5,6 +5,7 @@ import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @Getter
@@ -19,6 +20,10 @@ public class Task {
     private String description;
     private String answer;
     private Boolean approved;
+
+    @OneToMany(cascade = CascadeType.ALL)
+    private List<Hint> hints;
+
     @ManyToOne
     private Difficulty difficulty;
     @ManyToMany(cascade = CascadeType.ALL)
