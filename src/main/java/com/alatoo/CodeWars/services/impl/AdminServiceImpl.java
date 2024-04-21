@@ -44,7 +44,7 @@ public class AdminServiceImpl implements AdminService {
         Difficulty difficulty = new Difficulty();
         if(request.getName() == null)
             throw new BadRequestException("Field 'name' must be filled!");
-        difficulty.setName(request.getName());
+        difficulty.setName(request.getName().toUpperCase());
         if(request.getPoints() == null)
             throw new BadRequestException("Field 'points' must be filled");
         difficulty.setPoints(request.getPoints());
@@ -62,15 +62,23 @@ public class AdminServiceImpl implements AdminService {
 
     @Override
     public String delete(String token, Long id) {
-        User user = authService.getUserFromToken(token);
-        if(!user.getRole().equals(Role.ADMIN))
+        User admin = authService.getUserFromToken(token);
+        if(!admin.getRole().equals(Role.ADMIN))
             throw new BlockedException("no");
         Optional<Task> task = taskRepository.findById(id);
         if(task.isEmpty())
             throw new NotFoundException("Task not found.", HttpStatus.NOT_FOUND);
         task.get().setAdded_user(null);
+        task.get().getDifficulty().getTask().remove(task.get());
+        difficultyRepository.saveAndFlush(task.get().getDifficulty());
         task.get().setDifficulty(null);
-        task.get().getAnswered_users().clear();
+        for(User user1 : userRepository.findAll()){
+            List<Task> newList = user1.getSolvedTasks();
+            newList.remove(task.get());
+            user1.setSolvedTasks(newList);
+            userRepository.saveAndFlush(user1);
+        }
+        task.get().setAnswered_users(null);
         List<TaskFile> taskFiles = task.get().getTaskFiles();
         if(!taskFiles.isEmpty()) {
             for (TaskFile file : taskFiles) {
@@ -78,6 +86,13 @@ public class AdminServiceImpl implements AdminService {
                 taskFileRepository.delete(file);
             }
         }
+        for(User user1 : userRepository.findAll()){
+            List<Task> newList = user1.getCreatedTasks();
+            newList.remove(task.get());
+            user1.setCreatedTasks(newList);
+            userRepository.saveAndFlush(user1);
+        }
+        task.get().setAdded_user(null);
         taskRepository.delete(task.get());
         return "Successfully deleted.";
     }

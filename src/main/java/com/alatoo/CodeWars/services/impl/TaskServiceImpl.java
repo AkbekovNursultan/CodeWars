@@ -54,16 +54,15 @@ public class TaskServiceImpl implements TaskService {
     @Override
     public String addTask(String token, NewTaskRequest request) {
         User user = authService.getUserFromToken(token);
-        if(!user.getRole().equals(Role.ADMIN))
-            throw new BlockedException("no");
         authService.checkAccess(user);
+        String message = "The task addition was applied.\n It needs to be accepted by admins.";
         if(request.getName() == null)
             throw new BadRequestException("Field 'name' must be filled!");
         if(request.getDescription() == null)
             throw new BadRequestException("Field 'description' must be filled!");
-        if(request.getAnswer() == null)
+        if(request.getAnswer() == null || request.getAnswer().trim().equals(""))
             throw new BadRequestException("Parameter 'Answer' mustn't be empty.");
-        Optional<Difficulty> difficulty = difficultyRepository.findByName(request.getDifficulty().toUpperCase(Locale.ROOT));
+        Optional<Difficulty> difficulty = difficultyRepository.findByName(request.getDifficulty().toUpperCase());
         if(difficulty.isEmpty())
             throw new BadRequestException("Difficulty type:" + request.getDifficulty() + "doesn't exist!");
         if(request.getHints().size() > 3)
@@ -72,6 +71,12 @@ public class TaskServiceImpl implements TaskService {
         task.setName(request.getName());
         task.setDescription(request.getDescription());
         task.setDifficulty(difficulty.get());
+        task.setAdded_user(user);
+        task.setApproved(false);
+        if(user.getRole().equals(Role.ADMIN)) {
+            message = "The task was added successfully";
+            task.setApproved(true);
+        }
         task.setAnswer(request.getAnswer());
         List<Hint> newHints = new ArrayList<>();
         for(String text : request.getHints()){
@@ -79,21 +84,24 @@ public class TaskServiceImpl implements TaskService {
             hint.setTask(task);
             hint.setHint(text);
             newHints.add(hint);
-            hintRepository.save(hint);
+            taskRepository.save(task);
+            hintRepository.saveAndFlush(hint);
         }
         task.setHints(newHints);
-        task.setAdded_user(user);
-        task.setApproved(true);
         taskRepository.saveAndFlush(task);
-        return "The task was added successfully;";
+        difficulty.get().getTask().add(task);
+        difficultyRepository.saveAndFlush(difficulty.get());
+        user.getCreatedTasks().add(task);
+        userRepository.save(user);
+        return message;
     }
 
     @Override
     public String addTaskFile(String token, Long id, MultipartFile file) {
         User user = authService.getUserFromToken(token);
+        authService.checkAccess(user);
         if(!user.getRole().equals(Role.ADMIN))
             throw new BlockedException("no");
-        authService.checkAccess(user);
         Optional<Task> task = taskRepository.findById(id);
         if(task.isEmpty())
             throw new NotFoundException("404", HttpStatus.NOT_FOUND);
@@ -163,9 +171,9 @@ public class TaskServiceImpl implements TaskService {
                 if(hint.getReceivedUsers().contains(user))
                     usedHints.add(hint.getHint());
             }
-            int earnedPoints = task.get().getDifficulty().getPoints() - task.get().getDifficulty().getPoints() * usedHints.size() * 10;
+            int earnedPoints = task.get().getDifficulty().getPoints() - task.get().getDifficulty().getPoints() * usedHints.size() / 10;
             user.setPoints(user.getPoints() + earnedPoints);
-            String message = "Congratulations! You have found a correct answer!\n" + task.get().getDifficulty().getPoints() + " points earned";
+            String message = "Congratulations! You have found a correct answer!\n" + earnedPoints + " points earned";
             int previousRank = user.getRank();
             user.setRank(user.getPoints()/1000);
             if(previousRank < user.getRank())

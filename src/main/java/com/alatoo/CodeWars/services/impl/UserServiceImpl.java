@@ -8,10 +8,7 @@ import com.alatoo.CodeWars.exceptions.BadRequestException;
 import com.alatoo.CodeWars.exceptions.BlockedException;
 import com.alatoo.CodeWars.exceptions.NotFoundException;
 import com.alatoo.CodeWars.mappers.UserMapper;
-import com.alatoo.CodeWars.repositories.DifficultyRepository;
-import com.alatoo.CodeWars.repositories.TaskFileRepository;
-import com.alatoo.CodeWars.repositories.TaskRepository;
-import com.alatoo.CodeWars.repositories.UserRepository;
+import com.alatoo.CodeWars.repositories.*;
 import com.alatoo.CodeWars.services.AuthService;
 import com.alatoo.CodeWars.services.UserService;
 import com.amazonaws.services.s3.AmazonS3;
@@ -40,6 +37,7 @@ public class UserServiceImpl implements UserService {
     private final DifficultyRepository difficultyRepository;
     private final TaskFileRepository taskFileRepository;
     private final UserRepository userRepository;
+    private final HintRepository hintRepository;
     private final UserMapper userMapper;
 
     @Value("${application.bucket.name}")
@@ -56,40 +54,6 @@ public class UserServiceImpl implements UserService {
         if(user1.isEmpty())
             throw new NotFoundException("User not found.", HttpStatus.NOT_FOUND);
         return userMapper.toDto(user1.get());
-    }
-
-    @Override
-    public String addTask(String token, NewTaskRequest request) {
-        User user = authService.getUserFromToken(token);
-        authService.checkAccess(user);
-        if(user.getRole().equals(Role.ADMIN))
-            throw new BlockedException("no");
-        if(request.getName() == null)
-            throw new BadRequestException("Field 'name' must be filled!");
-        if(request.getDescription() == null)
-            throw new BadRequestException("Field 'description' must be filled!");
-        Optional<Difficulty> difficulty = difficultyRepository.findByName(request.getDifficulty().toUpperCase());
-        if(difficulty.isEmpty())
-            throw new BadRequestException("Difficulty type:" + request.getDifficulty() + "doesn't exist!");
-        if(request.getHints().size() > 3)
-            throw new BadRequestException("Max number of hints is 3.");
-        Task task = new Task();
-        task.setName(request.getName());
-        task.setDescription(request.getDescription());
-        task.setDifficulty(difficulty.get());
-        task.setAdded_user(user);
-        task.setApproved(false);
-        task = taskRepository.save(task);
-        List<Hint> newHints = new ArrayList<>();
-        for(String text : request.getHints()){
-            Hint hint = new Hint();
-            hint.setTask(task);
-            hint.setHint(text);
-            newHints.add(hint);
-        }
-        task.setHints(newHints);
-        taskRepository.saveAndFlush(task);
-        return "The task addition was applied.\n It needs to be accepted by admins.";
     }
 
     @Override

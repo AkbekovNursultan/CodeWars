@@ -33,7 +33,7 @@ public class User implements UserDetails {
 
     @OneToOne(cascade = CascadeType.ALL)
     private Image image;
-    @ManyToMany(cascade = CascadeType.ALL, mappedBy = "solved_by")
+    @ManyToMany(cascade = CascadeType.ALL)
     private List<Task> solvedTasks;
     @OneToMany(cascade = CascadeType.ALL)
     private List<Task> createdTasks;

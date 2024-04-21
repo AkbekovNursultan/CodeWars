@@ -93,7 +93,7 @@ public class AuthServiceImpl implements AuthService {
         user.get().setImage(null);
         user.get().setBanned(false);
         userRepository.save(user.get());
-        return "Email successfully connected.";
+        return "Email successfully connected.\nRegistration completed!";
     }
 
     @Override

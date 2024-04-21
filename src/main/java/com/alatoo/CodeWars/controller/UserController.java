@@ -16,6 +16,7 @@ import org.springframework.web.multipart.MultipartFile;
 public class UserController {
     private final UserService userService;
     private final ImageService imageService;
+    private final TaskService taskService;
     @GetMapping("/profile/{user_id}")
     public UserDtoResponse userInfo(@RequestHeader("Authorization") String token, @PathVariable Long user_id){
         return userService.showUserInfo(token, user_id);
@@ -32,9 +33,10 @@ public class UserController {
     public String deleteImage(@RequestHeader("Authorization") String token){
         return imageService.deleteFile(token);
     }
+
     @PostMapping("/task/add")
     public String addTask(@RequestHeader("Authorization") String token, @RequestBody NewTaskRequest request){
-        return userService.addTask(token, request);
+        return taskService.addTask(token, request);
     }
     @PostMapping("/task/{task_id}/file")
     public String addTaskFile(@RequestHeader("Authorization") String token,@PathVariable Long task_id , @RequestParam(value = "file") MultipartFile file){

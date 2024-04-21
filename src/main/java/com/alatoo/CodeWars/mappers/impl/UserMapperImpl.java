@@ -23,10 +23,16 @@ public class UserMapperImpl implements UserMapper {
         response.setUsername(user.getUsername());
         response.setEmail(user.getEmail());
         ImageResponse image = new ImageResponse();
-        image.setName(user.getImage().getName());
-        image.setPath(user.getImage().getPath());
-        image.setId(user.getImage().getId());
-        image.setUserId(user.getId());
+        if(user.getImage() != null) {
+            if (user.getImage().getName() != null)
+                image.setName(user.getImage().getName());
+            if (user.getImage().getPath() != null)
+                image.setPath(user.getImage().getPath());
+            if (user.getImage().getId() != null)
+                image.setId(user.getImage().getId());
+            if (user.getImage().getUser() != null)
+                image.setUserId(user.getId());
+        }
         response.setImage(image);
         response.setPoints(user.getPoints());
         response.setRank(user.getRank());
@@ -46,6 +52,7 @@ public class UserMapperImpl implements UserMapper {
             response.setEmail(user.getEmail());
             response.setRank(user.getRank());
             response.setBanned(user.getBanned());
+            response.setRole(user.getRole().toString().toUpperCase());
             responses.add(response);
         }
         return responses;

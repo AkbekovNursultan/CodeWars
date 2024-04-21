@@ -37,8 +37,9 @@ public class TaskMapperImpl implements TaskMapper {
     public TaskDetailsResponse taskDetails(Task task) {
         TaskDetailsResponse response = new TaskDetailsResponse();
         response.setId(task.getId());
-        response.setName(task.getDifficulty().getName());
+        response.setName(task.getName());
         response.setDescription(task.getDescription());
+        response.setDifficulty(task.getDifficulty().getName());
         List<TaskFileDtoResponse> taskFileDtoResponses = new ArrayList<>();
         for(TaskFile taskFile : task.getTaskFiles()){
             TaskFileDtoResponse taskFileDtoResponse = new TaskFileDtoResponse();
@@ -50,6 +51,7 @@ public class TaskMapperImpl implements TaskMapper {
         response.setTaskFiles(taskFileDtoResponses);
         response.setPoints(task.getDifficulty().getPoints());
         response.setSolved(task.getAnswered_users().size());
+        response.setCreatedBy(task.getAdded_user().getUsername());
         response.setVerified(task.getApproved());
         return response;
     }
@@ -59,6 +61,8 @@ public class TaskMapperImpl implements TaskMapper {
         List<TaskResponse> responseList = new ArrayList<>();
         List<Task> allTasks = taskRepository.findAll();
         for(Task task : allTasks){
+            if(!task.getApproved())
+                continue;
             TaskResponse response = new TaskResponse();
             response.setId(task.getId());
             response.setName(task.getName());

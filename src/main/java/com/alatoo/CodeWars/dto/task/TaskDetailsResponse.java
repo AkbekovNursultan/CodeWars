@@ -18,6 +18,6 @@ public class TaskDetailsResponse {
     private String difficulty;
     private Integer points;
     private Integer solved;
-    private User createdBy;
+    private String createdBy;
     private Boolean verified;
 }
