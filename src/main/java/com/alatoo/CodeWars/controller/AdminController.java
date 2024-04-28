@@ -39,7 +39,6 @@ public class AdminController {
     public String approveTask(@RequestHeader("Authorization") String token, @PathVariable Long task_id){
         return adminService.approveTask(token, task_id);
     }
-
     @DeleteMapping("/delete/{task_id}")
     public String deleteTask(@RequestHeader("Authorization") String token, @PathVariable Long task_id){
         return adminService.delete(token, task_id);

@@ -46,7 +46,6 @@ public class TaskServiceImpl implements TaskService {
 
     @Value("${application.bucket.name}")
     private String bucketName;
-    private String path = "http://localhost:8080/file/";
 
     @Autowired
     private AmazonS3 s3Client;
@@ -256,7 +255,7 @@ public class TaskServiceImpl implements TaskService {
 
         log.info("File with name = {} has successfully uploaded",taskFile.getName());
         TaskFile taskFile1 = taskFileRepository.saveAndFlush(taskFile);
-        String url = path+taskFile1.getId();
+        String url = "/download/"+ task.getId() + "/"+taskFile1.getId();
         taskFile1.setTask(task);
         taskFile1.setPath(url);
         return taskFileRepository.saveAndFlush(taskFile1);
@@ -271,4 +270,6 @@ public class TaskServiceImpl implements TaskService {
         }
         return convertedFile;
     }
+
+
 }

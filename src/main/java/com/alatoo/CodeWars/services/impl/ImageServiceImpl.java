@@ -9,8 +9,14 @@ import com.alatoo.CodeWars.repositories.UserRepository;
 import com.alatoo.CodeWars.services.AuthService;
 import com.alatoo.CodeWars.services.ImageService;
 import com.alatoo.CodeWars.exceptions.*;
+import com.amazonaws.auth.profile.ProfileCredentialsProvider;
 import com.amazonaws.services.s3.AmazonS3;
+import com.amazonaws.services.s3.AmazonS3Client;
+import com.amazonaws.services.s3.model.GetObjectRequest;
 import com.amazonaws.services.s3.model.PutObjectRequest;
+import com.amazonaws.services.s3.model.S3Object;
+import com.amazonaws.services.s3.model.S3ObjectInputStream;
+import com.amazonaws.util.IOUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,6 +29,7 @@ import com.alatoo.CodeWars.entities.Image;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.Optional;
 
 @Service
@@ -36,8 +43,7 @@ public class ImageServiceImpl implements ImageService {
 
     @Value("${application.bucket.name}")
     private String bucketName;
-    @Value("${location.path}")
-    private String path;
+    private String path = "http://localhost:8080/profile/image/";
 
     @Autowired
     private AmazonS3 s3Client;
@@ -71,7 +77,7 @@ public class ImageServiceImpl implements ImageService {
 
         log.info("File with name = {} has successfully uploaded", image.getName());
         Image image1 = imageRepository.saveAndFlush(image);
-        String url = path+image1.getId();
+        String url = path+image1.getName();
         image1.setPath(url);
         return imageRepository.saveAndFlush(image1);
     }
@@ -118,6 +124,12 @@ public class ImageServiceImpl implements ImageService {
         imageRepository.delete(image.get());
         s3Client.deleteObject(bucketName, fileName);
         return fileName + " removed ...";
+    }
+
+    @Override
+    public S3Object getFile(String fileName) {
+        S3Object s3Object = s3Client.getObject(bucketName, fileName);
+        return s3Object;
     }
 
 

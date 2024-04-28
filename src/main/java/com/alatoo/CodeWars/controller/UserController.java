@@ -7,16 +7,26 @@ import com.alatoo.CodeWars.services.ImageService;
 import com.alatoo.CodeWars.services.TaskService;
 import com.alatoo.CodeWars.services.UserService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.io.InputStreamResource;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import com.amazonaws.services.s3.AmazonS3;
+import com.amazonaws.services.s3.model.PutObjectRequest;
 
 @RestController
 @RequiredArgsConstructor
+@Slf4j
 @RequestMapping("/user")
 public class UserController {
     private final UserService userService;
     private final ImageService imageService;
     private final TaskService taskService;
+
     @GetMapping("/profile/{user_id}")
     public UserDtoResponse userInfo(@RequestHeader("Authorization") String token, @PathVariable Long user_id){
         return userService.showUserInfo(token, user_id);
@@ -24,6 +34,15 @@ public class UserController {
     @GetMapping("/profile/{user_id}/image")
     public ImageResponse showImage(@RequestHeader("Authorization") String token, @PathVariable Long user_id){
         return imageService.showByUser(token, user_id);
+    }
+    @GetMapping("/profile/image/{fileName}")
+    public ResponseEntity<InputStreamResource> viewFile(@PathVariable String fileName) {
+        var s3Object = imageService.getFile(fileName);
+        var content = s3Object.getObjectContent();
+        return ResponseEntity.ok()
+                .contentType(MediaType.IMAGE_PNG)
+                .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\""+fileName+"\"")
+                .body(new InputStreamResource(content));
     }
     @PostMapping("/profile/image/add")
     public String upload(@RequestHeader("Authorization") String token, @RequestParam(value = "file") MultipartFile file){

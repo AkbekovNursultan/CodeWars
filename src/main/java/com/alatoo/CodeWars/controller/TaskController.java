@@ -23,7 +23,7 @@ public class TaskController {
     public TaskDetailsResponse showTaskDetails(@RequestHeader("Authorization") String token, @PathVariable Long task_id){
         return taskService.showById(token, task_id);
     }
-    @GetMapping("/{task_id}/download/{file_id}")
+    @GetMapping("/download/{task_id}/{file_id}")
     public ResponseEntity<ByteArrayResource> downloadTaskFile(@PathVariable Long task_id, @PathVariable Long file_id){
         String fileName = taskService.getFileName(task_id, file_id);
         byte[] data = taskService.downloadFile(fileName);

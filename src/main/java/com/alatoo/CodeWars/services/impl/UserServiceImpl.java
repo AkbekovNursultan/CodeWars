@@ -106,7 +106,7 @@ public class UserServiceImpl implements UserService {
 
         log.info("File with name = {} has successfully uploaded",taskFile.getName());
         TaskFile taskFile1 = taskFileRepository.saveAndFlush(taskFile);
-        String url = path+taskFile1.getId();
+        String url = "/download/"+ task.getId() + "/"+taskFile1.getId();
         taskFile1.setTask(task);
         taskFile1.setPath(url);
         return taskFileRepository.saveAndFlush(taskFile1);
