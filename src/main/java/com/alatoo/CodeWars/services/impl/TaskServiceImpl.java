@@ -1,36 +1,23 @@
 package com.alatoo.CodeWars.services.impl;
 
-import com.alatoo.CodeWars.dto.task.NewTaskRequest;
-import com.alatoo.CodeWars.dto.task.TaskDetailsResponse;
-import com.alatoo.CodeWars.dto.task.TaskResponse;
+import com.alatoo.CodeWars.dto.task.*;
 import com.alatoo.CodeWars.entities.*;
 import com.alatoo.CodeWars.enums.Role;
 import com.alatoo.CodeWars.exceptions.BadRequestException;
-import com.alatoo.CodeWars.exceptions.BlockedException;
 import com.alatoo.CodeWars.exceptions.NotFoundException;
 import com.alatoo.CodeWars.mappers.TaskMapper;
 import com.alatoo.CodeWars.repositories.*;
 import com.alatoo.CodeWars.services.AuthService;
 import com.alatoo.CodeWars.services.TaskService;
-import com.amazonaws.services.s3.AmazonS3;
-import com.amazonaws.services.s3.model.PutObjectRequest;
-import com.amazonaws.services.s3.model.S3Object;
-import com.amazonaws.services.s3.model.S3ObjectInputStream;
-import com.amazonaws.util.IOUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
-import org.springframework.web.multipart.MultipartFile;
 
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
+import java.text.DecimalFormat;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.Optional;
 @Service
 @Slf4j
@@ -39,16 +26,10 @@ public class TaskServiceImpl implements TaskService {
     private final AuthService authService;
     private final TaskRepository taskRepository;
     private final DifficultyRepository difficultyRepository;
-    private final TaskFileRepository taskFileRepository;
     private final TaskMapper taskMapper;
     private final UserRepository userRepository;
     private final HintRepository hintRepository;
-
-    @Value("${application.bucket.name}")
-    private String bucketName;
-
-    @Autowired
-    private AmazonS3 s3Client;
+    private final TagRepository tagRepository;
 
     @Override
     public String addTask(String token, NewTaskRequest request) {
@@ -70,7 +51,7 @@ public class TaskServiceImpl implements TaskService {
         task.setName(request.getName());
         task.setDescription(request.getDescription());
         task.setDifficulty(difficulty.get());
-        task.setAdded_user(user);
+        task.setAddedUser(user);
         task.setApproved(false);
         if(user.getRole().equals(Role.ADMIN)) {
             message = "The task was added successfully";
@@ -86,32 +67,28 @@ public class TaskServiceImpl implements TaskService {
             taskRepository.save(task);
             hintRepository.saveAndFlush(hint);
         }
+        List<Tag> taskTags = new ArrayList<>();
+        for(String requestTag : request.getTags()){
+            List<Tag> allTags = tagRepository.findAll();
+            for(Tag tag : allTags){
+                if(tag.getName().equalsIgnoreCase(requestTag)){
+                    taskTags.add(tag);
+                    tag.getTasks().add(task);
+                }
+            }
+        }
+
+        task.setTags(taskTags);
+        task.setTaskFiles(new ArrayList<>());
+        task.setReviews(new ArrayList<>());
         task.setHints(newHints);
+        task.setCreatedDate(LocalDateTime.now());
         taskRepository.saveAndFlush(task);
-        difficulty.get().getTask().add(task);
-        difficultyRepository.saveAndFlush(difficulty.get());
+        difficulty.get().getTasks().add(task);
+        //--
         user.getCreatedTasks().add(task);
         userRepository.save(user);
         return message;
-    }
-
-    @Override
-    public String addTaskFile(String token, Long id, MultipartFile file) {
-        User user = authService.getUserFromToken(token);
-        authService.checkAccess(user);
-        if(!user.getRole().equals(Role.ADMIN))
-            throw new BlockedException("no");
-        Optional<Task> task = taskRepository.findById(id);
-        if(task.isEmpty())
-            throw new NotFoundException("404", HttpStatus.NOT_FOUND);
-        if(file != null) {
-            TaskFile taskFile = saveFile(task.get(), file);
-            List<TaskFile> taskFiles = new ArrayList<>();
-            taskFiles.add(taskFile);
-            task.get().setTaskFiles(taskFiles);
-            taskRepository.saveAndFlush(task.get());
-        }
-        return "Done";
     }
 
     @Override
@@ -131,23 +108,13 @@ public class TaskServiceImpl implements TaskService {
         authService.checkAccess(user);
         return taskMapper.toDtoS();
     }
-
     @Override
-    public String getFileName(Long taskId, Long fileId) {
-        Optional<Task> task = taskRepository.findById(taskId);
-        if(task.isEmpty())
-            throw new NotFoundException("Task Not Found", HttpStatus.NOT_FOUND);
-        String fileName = null;
-        for(TaskFile file : task.get().getTaskFiles()){
-            if(file.getId().equals(fileId)){
-                fileName = file.getName();
-            }
-        }
-        if(fileName == null){
-            throw new NotFoundException("File Not Found.", HttpStatus.NOT_FOUND);
-        }
-        return fileName;
+    public List<TaskResponse> search(String token, SearchTaskRequest request){
+        User user = authService.getUserFromToken(token);
+        authService.checkAccess(user);
+        return taskMapper.toDtoS(user, request);
     }
+
     @Override
     public String attempt(String token, Long taskId, String answer) {
         User user = authService.getUserFromToken(token);
@@ -179,9 +146,9 @@ public class TaskServiceImpl implements TaskService {
                 message = message + "\nYour rank has been increased!\n" + previousRank + "--->" + user.getRank();
             user.setSolvedTasks(tasks);
             List<User> users = new ArrayList<>();
-            if(!task.get().getAnswered_users().isEmpty())
-                users = task.get().getAnswered_users();
-            task.get().setAnswered_users(users);
+            if(!task.get().getAnsweredUsers().isEmpty())
+                users = task.get().getAnsweredUsers();
+            task.get().setAnsweredUsers(users);
             taskRepository.saveAndFlush(task.get());
             userRepository.saveAndFlush(user);
             return message;
@@ -231,45 +198,31 @@ public class TaskServiceImpl implements TaskService {
     }
 
     @Override
-    public byte[] downloadFile(String fileName) {
-        if(fileName == null)
-            throw new NotFoundException("No files", HttpStatus.NOT_FOUND);
-        S3Object s3Object = s3Client.getObject(bucketName, fileName);
-        S3ObjectInputStream inputStream = s3Object.getObjectContent();
-        try {
-            byte[] content = IOUtils.toByteArray(inputStream);
-            return content;
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-        return null;
+    public String addReview(String token, Long taskId, ReviewDto reviewDto) {
+        User user = authService.getUserFromToken(token);
+        authService.checkAccess(user);
+        Optional<Task> task = taskRepository.findById(taskId);
+        if(task.isEmpty() || user.getCreatedTasks().contains(task.get()))
+            throw new NotFoundException("Task not found.", HttpStatus.NOT_FOUND);
+        DecimalFormat decimalFormat = new DecimalFormat("#.#");
+        Review review = new Review();
+        review.setText(reviewDto.getText());
+        review.setRating(reviewDto.getRating());
+        review.setTask(task.get());
+        review.setUser(user);
+        task.get().getReviews().add(review);
+        task.get().setRating(Double.parseDouble(decimalFormat.format(task.get().getRating() / task.get().getReviews().size())));
+        taskRepository.save(task.get());
+        return "Done";
     }
 
-    private TaskFile saveFile(Task task , MultipartFile file) {
-        TaskFile taskFile = new TaskFile();
-        File fileObj = convertMultiPartFileToFile(file);
-        String fileName = System.currentTimeMillis() + "_" + file.getOriginalFilename();
-        s3Client.putObject(new PutObjectRequest(bucketName, fileName, fileObj));
-        taskFile.setName(fileName);
-        fileObj.delete();
-
-        log.info("File with name = {} has successfully uploaded",taskFile.getName());
-        TaskFile taskFile1 = taskFileRepository.saveAndFlush(taskFile);
-        String url = "/download/"+ task.getId() + "/"+taskFile1.getId();
-        taskFile1.setTask(task);
-        taskFile1.setPath(url);
-        return taskFileRepository.saveAndFlush(taskFile1);
+    @Override
+    public List<ReviewDto> showAllReviews(String token, Long taskId) {
+        User user = authService.getUserFromToken(token);
+        authService.checkAccess(user);
+        Optional<Task> task = taskRepository.findById(taskId);
+        if(task.isEmpty())
+            throw new NotFoundException("Task not found", HttpStatus.NOT_FOUND);
+        return taskMapper.allReviews(task.get());
     }
-
-    private File convertMultiPartFileToFile(MultipartFile file) {
-        File convertedFile = new File(file.getOriginalFilename());
-        try (FileOutputStream fos = new FileOutputStream(convertedFile)) {
-            fos.write(file.getBytes());
-        } catch (IOException e) {
-            log.error("Error converting multipartFile to file", e);
-        }
-        return convertedFile;
-    }
-
-
 }

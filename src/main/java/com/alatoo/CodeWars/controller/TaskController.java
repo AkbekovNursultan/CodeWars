@@ -1,8 +1,11 @@
 package com.alatoo.CodeWars.controller;
 
+import com.alatoo.CodeWars.dto.task.ReviewDto;
 import com.alatoo.CodeWars.dto.task.TaskDetailsResponse;
 import com.alatoo.CodeWars.dto.task.TaskResponse;
+import com.alatoo.CodeWars.services.TaskFileService;
 import com.alatoo.CodeWars.services.TaskService;
+import com.alatoo.CodeWars.dto.task.SearchTaskRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.ResponseEntity;
@@ -15,9 +18,14 @@ import java.util.List;
 @RequiredArgsConstructor
 public class TaskController {
     private final TaskService taskService;
+    private final TaskFileService taskFileService;
     @GetMapping("/all")
     public List<TaskResponse> showAllTasks(@RequestHeader("Authorization") String token){
         return taskService.showAllTasks(token);
+    }
+    @GetMapping("/search")
+    public List<TaskResponse> search(@RequestHeader("Authorization") String token, @RequestBody SearchTaskRequest searchRequest){
+        return taskService.search(token, searchRequest);
     }
     @GetMapping("/{task_id}")
     public TaskDetailsResponse showTaskDetails(@RequestHeader("Authorization") String token, @PathVariable Long task_id){
@@ -25,8 +33,8 @@ public class TaskController {
     }
     @GetMapping("/download/{task_id}/{file_id}")
     public ResponseEntity<ByteArrayResource> downloadTaskFile(@PathVariable Long task_id, @PathVariable Long file_id){
-        String fileName = taskService.getFileName(task_id, file_id);
-        byte[] data = taskService.downloadFile(fileName);
+        String fileName = taskFileService.getFileName(task_id, file_id);
+        byte[] data = taskFileService.downloadFile(fileName);
         ByteArrayResource resource = new ByteArrayResource(data);
         return ResponseEntity.ok()
                 .contentLength(data.length)
@@ -37,6 +45,14 @@ public class TaskController {
     @PostMapping("/{task_id}/answer")
     public String attemptAnswer(@RequestHeader("Authorization") String token, @RequestParam String answer, @PathVariable Long task_id){
         return taskService.attempt(token, task_id, answer);
+    }
+    @PostMapping("/{task_id}/rate")
+    public String rateTask(@RequestHeader("Authorization") String token, @PathVariable Long task_id, @RequestBody ReviewDto reviewDto){
+        return taskService.addReview(token, task_id, reviewDto);
+    }
+    @GetMapping("/{task_id}/reviews")
+    public List<ReviewDto> reviews(@RequestHeader("Authorization") String token, @PathVariable Long task_id){
+        return taskService.showAllReviews(token, task_id);
     }
     @GetMapping("/{task_id}/get_hint")
     public String getHint(@RequestHeader("Authorization") String token, @PathVariable Long task_id){

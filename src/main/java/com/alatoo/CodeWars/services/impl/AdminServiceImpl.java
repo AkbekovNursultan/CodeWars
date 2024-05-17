@@ -10,10 +10,7 @@ import com.alatoo.CodeWars.exceptions.BlockedException;
 import com.alatoo.CodeWars.exceptions.NotFoundException;
 import com.alatoo.CodeWars.mappers.TaskMapper;
 import com.alatoo.CodeWars.mappers.UserMapper;
-import com.alatoo.CodeWars.repositories.DifficultyRepository;
-import com.alatoo.CodeWars.repositories.TaskFileRepository;
-import com.alatoo.CodeWars.repositories.TaskRepository;
-import com.alatoo.CodeWars.repositories.UserRepository;
+import com.alatoo.CodeWars.repositories.*;
 import com.alatoo.CodeWars.services.AdminService;
 import com.alatoo.CodeWars.services.AuthService;
 import lombok.RequiredArgsConstructor;
@@ -34,6 +31,7 @@ public class AdminServiceImpl implements AdminService {
     private final TaskMapper taskMapper;
     private final UserRepository userRepository;
     private final UserMapper userMapper;
+    private final TagRepository tagRepository;
 
     @Override
     public String addDifficulty(String token, NewDifficultyRequest request) {
@@ -68,17 +66,13 @@ public class AdminServiceImpl implements AdminService {
         Optional<Task> task = taskRepository.findById(id);
         if(task.isEmpty())
             throw new NotFoundException("Task not found.", HttpStatus.NOT_FOUND);
-        task.get().setAdded_user(null);
-        task.get().getDifficulty().getTask().remove(task.get());
-        difficultyRepository.saveAndFlush(task.get().getDifficulty());
+        task.get().setAddedUser(null);
+        task.get().getDifficulty().getTasks().remove(task.get());
         task.get().setDifficulty(null);
         for(User user1 : userRepository.findAll()){
-            List<Task> newList = user1.getSolvedTasks();
-            newList.remove(task.get());
-            user1.setSolvedTasks(newList);
-            userRepository.saveAndFlush(user1);
+            user1.getSolvedTasks().remove(task.get());
         }
-        task.get().setAnswered_users(null);
+        task.get().setAnsweredUsers(null);
         List<TaskFile> taskFiles = task.get().getTaskFiles();
         if(!taskFiles.isEmpty()) {
             for (TaskFile file : taskFiles) {
@@ -92,7 +86,12 @@ public class AdminServiceImpl implements AdminService {
             user1.setCreatedTasks(newList);
             userRepository.saveAndFlush(user1);
         }
-        task.get().setAdded_user(null);
+        task.get().setAddedUser(null);
+        if(!task.get().getTags().isEmpty()){
+            for(Tag tag : task.get().getTags()){
+                tag.getTasks().remove(task.get());
+            }
+        }
         taskRepository.delete(task.get());
         return "Successfully deleted.";
     }
@@ -144,5 +143,19 @@ public class AdminServiceImpl implements AdminService {
         if(!admin.getRole().equals(Role.ADMIN))
             throw new BlockedException("no");
         return userMapper.allUsers();
+    }
+
+    @Override
+    public String addTags(String token, List<String> tagNames) {
+        User user = authService.getUserFromToken(token);
+        if(!user.getRole().equals(Role.ADMIN))
+            throw new BlockedException("Nah");
+        for(String tagName : tagNames) {
+            Tag tag = new Tag();
+            tag.setName(tagName);
+            tag.setTasks(new ArrayList<>());
+            tagRepository.save(tag);
+        }
+        return "Tag saved";
     }
 }

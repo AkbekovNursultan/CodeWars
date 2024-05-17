@@ -6,6 +6,8 @@ import jakarta.persistence.Id;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.time.LocalDateTime;
+
 @Getter
 @Setter
 public class TaskResponse {
@@ -14,4 +16,6 @@ public class TaskResponse {
     private Long id;
     private String name;
     private String difficulty;
+    private Double rating;
+    private LocalDateTime createdDate;
 }

@@ -9,13 +9,13 @@ import java.util.List;
 @Getter
 @Setter
 @Entity
-@Table(name = "difficulties")
-public class Difficulty {
+
+public class Tag {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
     private String name;
-    private Integer points;
-    @OneToMany
+
+    @ManyToMany
     private List<Task> tasks;
 }

@@ -38,7 +38,6 @@ import java.util.Optional;
 public class ImageServiceImpl implements ImageService {
     private final AuthService authService;
     private final ImageRepository imageRepository;
-    private final ImageMapper imageMapper;
     private final UserRepository userRepository;
 
     @Value("${application.bucket.name}")
@@ -94,19 +93,6 @@ public class ImageServiceImpl implements ImageService {
 //        }
 //        return null;
 //    }
-
-    @Override
-    public ImageResponse showByUser(String token, Long userId) {
-        User user = authService.getUserFromToken(token);
-        Optional<User> user1 = userRepository.findById(userId);
-        authService.checkAccess(user);
-        if(user1.isEmpty())
-            throw new NotFoundException("User not found.", HttpStatus.NOT_FOUND);
-        Optional<Image> image = imageRepository.findByUser(user1.get());
-        if(image.isEmpty())
-            throw new NotFoundException("Image not found!", HttpStatus.NOT_FOUND);
-        return imageMapper.toDetailDto(image.get());
-    }
     @Override
     public String deleteFile(String token) {
         User user = authService.getUserFromToken(token);
@@ -128,8 +114,7 @@ public class ImageServiceImpl implements ImageService {
 
     @Override
     public S3Object getFile(String fileName) {
-        S3Object s3Object = s3Client.getObject(bucketName, fileName);
-        return s3Object;
+        return s3Client.getObject(bucketName, fileName);
     }
 
 

@@ -35,6 +35,8 @@ public class User implements UserDetails {
     private Image image;
     @ManyToMany(cascade = CascadeType.ALL)
     private List<Task> solvedTasks;
+    @OneToMany
+    private List<Review> reviews;
     @OneToMany(cascade = CascadeType.ALL)
     private List<Task> createdTasks;
     @ManyToMany(cascade = CascadeType.ALL)

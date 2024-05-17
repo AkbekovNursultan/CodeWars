@@ -1,10 +1,9 @@
 package com.alatoo.CodeWars.services;
 
 import com.alatoo.CodeWars.dto.task.NewDifficultyRequest;
-import com.alatoo.CodeWars.dto.task.NewTaskRequest;
 import com.alatoo.CodeWars.dto.task.TaskResponse;
 import com.alatoo.CodeWars.dto.user.UserResponse;
-import org.springframework.web.multipart.MultipartFile;
+import jakarta.transaction.Transactional;
 
 import java.util.List;
 
@@ -14,6 +13,7 @@ public interface AdminService {
 
     List<TaskResponse> showAllOffers(String token);
 
+    @Transactional
     String delete(String token, Long task_id);
 
     String approveTask(String token, Long taskId);
@@ -23,4 +23,6 @@ public interface AdminService {
     String unbanUser(String token, Long userId);
 
     List<UserResponse> showAllUsers(String token);
+
+    String addTags(String token, List<String> tagName);
 }

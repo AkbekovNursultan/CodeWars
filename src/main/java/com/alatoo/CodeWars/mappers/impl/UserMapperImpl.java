@@ -4,6 +4,7 @@ import com.alatoo.CodeWars.dto.user.ImageResponse;
 import com.alatoo.CodeWars.dto.user.UserDtoResponse;
 import com.alatoo.CodeWars.dto.user.UserResponse;
 import com.alatoo.CodeWars.entities.User;
+import com.alatoo.CodeWars.mappers.ImageMapper;
 import com.alatoo.CodeWars.mappers.UserMapper;
 import com.alatoo.CodeWars.repositories.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -16,6 +17,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class UserMapperImpl implements UserMapper {
     private final UserRepository userRepository;
+    private final ImageMapper imageMapper;
     @Override
     public UserDtoResponse toDto(User user) {
         UserDtoResponse response = new UserDtoResponse();
@@ -23,16 +25,8 @@ public class UserMapperImpl implements UserMapper {
         response.setUsername(user.getUsername());
         response.setEmail(user.getEmail());
         ImageResponse image = new ImageResponse();
-        if(user.getImage() != null) {
-            if (user.getImage().getName() != null)
-                image.setName(user.getImage().getName());
-            if (user.getImage().getPath() != null)
-                image.setPath(user.getImage().getPath());
-            if (user.getImage().getId() != null)
-                image.setId(user.getImage().getId());
-            if (user.getImage().getUser() != null)
-                image.setUserId(user.getId());
-        }
+        if(user.getImage() != null)
+            image = imageMapper.toDetailDto(user.getImage());
         response.setImage(image);
         response.setPoints(user.getPoints());
         response.setRank(user.getRank());

@@ -5,7 +5,7 @@ import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
 import lombok.Setter;
 
-import java.util.ArrayList;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Getter
@@ -16,20 +16,27 @@ public class Task {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-    private String name;
-    private String description;
-    private String answer;
+    @NotNull private String name;
+    @NotNull private String description;
+    @NotNull private String answer;
     private Boolean approved;
+    private Double rating;
+    private LocalDateTime createdDate;
 
     @OneToMany(cascade = CascadeType.ALL)
     private List<Hint> hints;
 
     @ManyToOne
     private Difficulty difficulty;
+    @ManyToMany(cascade = CascadeType.REMOVE)
+    private List<Tag> tags;
+
     @ManyToMany(cascade = CascadeType.ALL)
-    private List<User> answered_users;
+    private List<User> answeredUsers;
     @ManyToOne
-    private User added_user;
+    private User addedUser;
     @OneToMany(cascade = CascadeType.ALL)
     private List<TaskFile> taskFiles;
+    @OneToMany
+    private List<Review> reviews;
 }

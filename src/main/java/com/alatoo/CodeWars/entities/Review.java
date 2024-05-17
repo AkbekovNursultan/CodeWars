@@ -1,21 +1,24 @@
 package com.alatoo.CodeWars.entities;
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
 import lombok.Setter;
-
-import java.util.List;
 
 @Getter
 @Setter
 @Entity
-@Table(name = "difficulties")
-public class Difficulty {
+public class Review {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-    private String name;
-    private Integer points;
-    @OneToMany
-    private List<Task> tasks;
+    @NotNull private String text;
+    @NotNull
+    private Double rating;
+
+    @ManyToOne
+    private User user;
+
+    @ManyToOne
+    private Task task;
 }

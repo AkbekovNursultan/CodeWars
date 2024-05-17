@@ -9,7 +9,6 @@ import com.amazonaws.services.s3.model.PutObjectRequest;
 public interface ImageService {
     String upload(String token, MultipartFile file);
 //    byte[] downloadFile(String fileName);
-    ImageResponse showByUser(String token, Long userId);
     String deleteFile(String token);
 
     S3Object getFile(String fileName);

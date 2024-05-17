@@ -31,17 +31,13 @@ public class UserController {
     public UserDtoResponse userInfo(@RequestHeader("Authorization") String token, @PathVariable Long user_id){
         return userService.showUserInfo(token, user_id);
     }
-    @GetMapping("/profile/{user_id}/image")
-    public ImageResponse showImage(@RequestHeader("Authorization") String token, @PathVariable Long user_id){
-        return imageService.showByUser(token, user_id);
-    }
     @GetMapping("/profile/image/{fileName}")
-    public ResponseEntity<InputStreamResource> viewFile(@PathVariable String fileName) {
+    public ResponseEntity<InputStreamResource> showImage(@RequestHeader("Authorization") String token, @PathVariable String fileName) {
         var s3Object = imageService.getFile(fileName);
         var content = s3Object.getObjectContent();
         return ResponseEntity.ok()
                 .contentType(MediaType.IMAGE_PNG)
-                .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\""+fileName+"\"")
+                .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\""+"Profile Photo"+"\"")
                 .body(new InputStreamResource(content));
     }
     @PostMapping("/profile/image/add")
