@@ -1,22 +1,19 @@
 package com.alatoo.CodeWars.controller;
 
-import com.alatoo.CodeWars.dto.user.ImageResponse;
 import com.alatoo.CodeWars.dto.task.NewTaskRequest;
 import com.alatoo.CodeWars.dto.user.UserDtoResponse;
 import com.alatoo.CodeWars.services.ImageService;
+import com.alatoo.CodeWars.services.TaskFileService;
 import com.alatoo.CodeWars.services.TaskService;
 import com.alatoo.CodeWars.services.UserService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
-import com.amazonaws.services.s3.AmazonS3;
-import com.amazonaws.services.s3.model.PutObjectRequest;
 
 @RestController
 @RequiredArgsConstructor
@@ -26,6 +23,7 @@ public class UserController {
     private final UserService userService;
     private final ImageService imageService;
     private final TaskService taskService;
+    private final TaskFileService taskFileService;
 
     @GetMapping("/profile/{user_id}")
     public UserDtoResponse userInfo(@RequestHeader("Authorization") String token, @PathVariable Long user_id){
@@ -58,7 +56,7 @@ public class UserController {
         return userService.addTaskFile(token, task_id, file);
     }
     @DeleteMapping("/task/{task_id}/delete_files")
-    public String deleteFiles(@PathVariable Long task_id){
-        return userService.deleteTaskFiles(task_id);
+    public String deleteFiles(@RequestHeader("Authorization") String token, @PathVariable Long task_id){
+        return taskFileService.deleteTaskFiles(token, task_id);
     }
 }

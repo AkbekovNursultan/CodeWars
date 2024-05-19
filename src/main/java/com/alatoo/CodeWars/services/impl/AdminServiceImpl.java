@@ -13,6 +13,8 @@ import com.alatoo.CodeWars.mappers.UserMapper;
 import com.alatoo.CodeWars.repositories.*;
 import com.alatoo.CodeWars.services.AdminService;
 import com.alatoo.CodeWars.services.AuthService;
+import com.alatoo.CodeWars.services.TaskFileService;
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -27,7 +29,8 @@ public class AdminServiceImpl implements AdminService {
     private final DifficultyRepository difficultyRepository;
     private final TaskRepository taskRepository;
     private final AuthService authService;
-    private final TaskFileRepository taskFileRepository;
+    private final ReviewRepository reviewRepository;
+    private final TaskFileService taskFileService;
     private final TaskMapper taskMapper;
     private final UserRepository userRepository;
     private final UserMapper userMapper;
@@ -57,7 +60,7 @@ public class AdminServiceImpl implements AdminService {
             throw new BlockedException("no");
         return taskMapper.newTasksToDtoS();
     }
-
+    @Transactional
     @Override
     public String delete(String token, Long id) {
         User admin = authService.getUserFromToken(token);
@@ -67,19 +70,15 @@ public class AdminServiceImpl implements AdminService {
         if(task.isEmpty())
             throw new NotFoundException("Task not found.", HttpStatus.NOT_FOUND);
         task.get().setAddedUser(null);
-        task.get().getDifficulty().getTasks().remove(task.get());
+        if(task.get().getDifficulty() != null)
+            task.get().getDifficulty().getTasks().remove(task.get());
         task.get().setDifficulty(null);
         for(User user1 : userRepository.findAll()){
             user1.getSolvedTasks().remove(task.get());
         }
+        if(task.get().getTaskFiles() != null && !task.get().getTaskFiles().isEmpty())
+            taskFileService.deleteTaskFiles(token, id);
         task.get().setAnsweredUsers(null);
-        List<TaskFile> taskFiles = task.get().getTaskFiles();
-        if(!taskFiles.isEmpty()) {
-            for (TaskFile file : taskFiles) {
-                file.setTask(null);
-                taskFileRepository.delete(file);
-            }
-        }
         for(User user1 : userRepository.findAll()){
             List<Task> newList = user1.getCreatedTasks();
             newList.remove(task.get());
@@ -91,6 +90,13 @@ public class AdminServiceImpl implements AdminService {
             for(Tag tag : task.get().getTags()){
                 tag.getTasks().remove(task.get());
             }
+        }
+        List<Review> reviewList = reviewRepository.findAll();
+        for(Review review : reviewList){
+            review.getUser().getReviews().remove(review);
+            review.setUser(null);
+            task.get().getReviews().remove(review);
+            reviewRepository.delete(review);
         }
         taskRepository.delete(task.get());
         return "Successfully deleted.";
@@ -146,16 +152,14 @@ public class AdminServiceImpl implements AdminService {
     }
 
     @Override
-    public String addTags(String token, List<String> tagNames) {
+    public String addTags(String token, String tagName) {
         User user = authService.getUserFromToken(token);
         if(!user.getRole().equals(Role.ADMIN))
             throw new BlockedException("Nah");
-        for(String tagName : tagNames) {
-            Tag tag = new Tag();
-            tag.setName(tagName);
-            tag.setTasks(new ArrayList<>());
-            tagRepository.save(tag);
-        }
+        Tag tag = new Tag();
+        tag.setName(tagName);
+        tag.setTasks(new ArrayList<>());
+        tagRepository.save(tag);
         return "Tag saved";
     }
 }

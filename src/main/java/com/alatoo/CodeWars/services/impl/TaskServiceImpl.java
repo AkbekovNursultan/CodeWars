@@ -30,6 +30,7 @@ public class TaskServiceImpl implements TaskService {
     private final UserRepository userRepository;
     private final HintRepository hintRepository;
     private final TagRepository tagRepository;
+    private final ReviewRepository reviewRepository;
 
     @Override
     public String addTask(String token, NewTaskRequest request) {
@@ -42,9 +43,11 @@ public class TaskServiceImpl implements TaskService {
             throw new BadRequestException("Field 'description' must be filled!");
         if(request.getAnswer() == null || request.getAnswer().trim().equals(""))
             throw new BadRequestException("Parameter 'Answer' mustn't be empty.");
+        if(request.getDifficulty() == null || request.getDifficulty().trim().equals(""))
+            throw new BadRequestException("Field 'difficulty' mustn't be empty.");
         Optional<Difficulty> difficulty = difficultyRepository.findByName(request.getDifficulty().toUpperCase());
         if(difficulty.isEmpty())
-            throw new BadRequestException("Difficulty type:" + request.getDifficulty() + "doesn't exist!");
+            throw new BadRequestException("Difficulty type: " + request.getDifficulty() + " doesn't exist!");
         if(request.getHints().size() > 3)
             throw new BadRequestException("Max number of hints is 3.");
         Task task = new Task();
@@ -67,18 +70,19 @@ public class TaskServiceImpl implements TaskService {
             taskRepository.save(task);
             hintRepository.saveAndFlush(hint);
         }
-        List<Tag> taskTags = new ArrayList<>();
-        for(String requestTag : request.getTags()){
-            List<Tag> allTags = tagRepository.findAll();
-            for(Tag tag : allTags){
-                if(tag.getName().equalsIgnoreCase(requestTag)){
-                    taskTags.add(tag);
-                    tag.getTasks().add(task);
+        if(request.getTags() != null && !request.getTags().isEmpty()) {
+            List<Tag> taskTags = new ArrayList<>();
+            for (String requestTag : request.getTags()) {
+                List<Tag> allTags = tagRepository.findAll();
+                for (Tag tag : allTags) {
+                    if (tag.getName().equalsIgnoreCase(requestTag)) {
+                        taskTags.add(tag);
+                        tag.getTasks().add(task);
+                    }
                 }
             }
+            task.setTags(taskTags);
         }
-
-        task.setTags(taskTags);
         task.setTaskFiles(new ArrayList<>());
         task.setReviews(new ArrayList<>());
         task.setHints(newHints);
@@ -148,7 +152,9 @@ public class TaskServiceImpl implements TaskService {
             List<User> users = new ArrayList<>();
             if(!task.get().getAnsweredUsers().isEmpty())
                 users = task.get().getAnsweredUsers();
+            users.add(user);
             task.get().setAnsweredUsers(users);
+            task.get().setSolved(task.get().getSolved() + 1);
             taskRepository.saveAndFlush(task.get());
             userRepository.saveAndFlush(user);
             return message;
@@ -204,16 +210,44 @@ public class TaskServiceImpl implements TaskService {
         Optional<Task> task = taskRepository.findById(taskId);
         if(task.isEmpty() || user.getCreatedTasks().contains(task.get()))
             throw new NotFoundException("Task not found.", HttpStatus.NOT_FOUND);
-        DecimalFormat decimalFormat = new DecimalFormat("#.#");
+        if(doesReviewExist(task.get(), user)) {
+            List<Review> reviewList = reviewRepository.findAll();
+            for(Review review : reviewList){
+                if(review.getUser() == user) {
+                    review.getUser().getReviews().remove(review);
+                    review.setUser(null);
+                    task.get().getReviews().remove(review);
+                    reviewRepository.delete(review);
+                }
+            }
+        }
         Review review = new Review();
         review.setText(reviewDto.getText());
         review.setRating(reviewDto.getRating());
         review.setTask(task.get());
         review.setUser(user);
+        reviewRepository.save(review);
         task.get().getReviews().add(review);
-        task.get().setRating(Double.parseDouble(decimalFormat.format(task.get().getRating() / task.get().getReviews().size())));
+        user.getReviews().add(review);
+        task.get().setRating(calculateRating(taskRepository.save(task.get())));
+        userRepository.save(user);
         taskRepository.save(task.get());
         return "Done";
+    }
+    private Double calculateRating(Task task){
+        Double result = 0.0;
+        for(Review review : task.getReviews()){
+            result += review.getRating();
+        }
+        result /= task.getReviews().size();
+        return result;
+    }
+    private Boolean doesReviewExist(Task task, User user){
+        for(Review review : task.getReviews()){
+            if(review.getUser() == user)
+                return true;
+        }
+        return false;
     }
 
     @Override

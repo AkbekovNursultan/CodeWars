@@ -81,20 +81,6 @@ public class UserServiceImpl implements UserService {
         }
         return "Done";
     }
-    @Override
-    public String deleteTaskFiles(Long taskId) {
-        Optional<Task> task = taskRepository.findById(taskId);
-        if(task.isEmpty())
-            throw new NotFoundException("Task not found.", HttpStatus.NOT_FOUND);
-        List<TaskFile> files = task.get().getTaskFiles();
-        task.get().setTaskFiles(null);
-        for(TaskFile taskFile : files){
-            taskFile.setTask(null);
-            taskFileRepository.delete(taskFile);
-        }
-        taskRepository.saveAndFlush(task.get());
-        return "Done";
-    }
 
     private TaskFile saveFile(Task task , MultipartFile file) {
         TaskFile taskFile = new TaskFile();
@@ -106,7 +92,7 @@ public class UserServiceImpl implements UserService {
 
         log.info("File with name = {} has successfully uploaded",taskFile.getName());
         TaskFile taskFile1 = taskFileRepository.saveAndFlush(taskFile);
-        String url = "/download/"+ task.getId() + "/"+taskFile1.getId();
+        String url = "/task/download/"+ task.getId() + "/"+taskFile1.getId();
         taskFile1.setTask(task);
         taskFile1.setPath(url);
         return taskFileRepository.saveAndFlush(taskFile1);

@@ -16,6 +16,7 @@ public class TaskResponse {
     private Long id;
     private String name;
     private String difficulty;
-    private Double rating;
+    private String rating;
     private LocalDateTime createdDate;
+    private Integer solved;
 }

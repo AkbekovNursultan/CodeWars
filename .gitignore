@@ -31,5 +31,6 @@ build/
 
 ### VS Code ###
 .vscode/
-src/main/resources/application-secret.properties
-src/main/resources/application.properties
+
+# Spring Boot application properties
+/application.properties

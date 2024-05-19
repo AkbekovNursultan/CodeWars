@@ -18,6 +18,7 @@ public class TaskDetailsResponse {
     private List<String> tags;
     private String difficulty;
     private Integer points;
+    private String rating;
     private Integer solved;
     private String createdBy;
     private Boolean verified;

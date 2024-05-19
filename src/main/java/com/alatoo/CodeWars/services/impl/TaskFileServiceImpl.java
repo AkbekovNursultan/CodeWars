@@ -4,10 +4,12 @@ import com.alatoo.CodeWars.entities.Task;
 import com.alatoo.CodeWars.entities.TaskFile;
 import com.alatoo.CodeWars.entities.User;
 import com.alatoo.CodeWars.enums.Role;
+import com.alatoo.CodeWars.exceptions.BadRequestException;
 import com.alatoo.CodeWars.exceptions.BlockedException;
 import com.alatoo.CodeWars.exceptions.NotFoundException;
 import com.alatoo.CodeWars.repositories.TaskFileRepository;
 import com.alatoo.CodeWars.repositories.TaskRepository;
+import com.alatoo.CodeWars.repositories.UserRepository;
 import com.alatoo.CodeWars.services.AuthService;
 import com.alatoo.CodeWars.services.TaskFileService;
 import com.amazonaws.services.s3.AmazonS3;
@@ -37,6 +39,7 @@ public class TaskFileServiceImpl implements TaskFileService {
     private final AuthService authService;
     private final TaskRepository taskRepository;
     private final TaskFileRepository taskFileRepository;
+    private final UserRepository userRepository;
     @Value("${application.bucket.name}")
     private String bucketName;
 
@@ -72,7 +75,7 @@ public class TaskFileServiceImpl implements TaskFileService {
 
         log.info("File with name = {} has successfully uploaded",taskFile.getName());
         TaskFile taskFile1 = taskFileRepository.saveAndFlush(taskFile);
-        String url = "localhost:8080/download/"+ task.getId() + "/"+taskFile1.getId();
+        String url = "localhost:8080/task/download/"+ task.getId() + "/"+taskFile1.getId();
         taskFile1.setTask(task);
         taskFile1.setPath(url);
         return taskFileRepository.saveAndFlush(taskFile1);
@@ -93,6 +96,33 @@ public class TaskFileServiceImpl implements TaskFileService {
         }
         return fileName;
     }
+    @Override
+    public String deleteTaskFiles(String token, Long taskId) {
+        User user = authService.getUserFromToken(token);
+        authService.checkAccess(user);
+        Optional<Task> task = taskRepository.findById(taskId);
+        if (task.isEmpty())
+            throw new NotFoundException("Task not found.", HttpStatus.NOT_FOUND);
+
+        List<TaskFile> files = taskFileRepository.findByTask(task.get());
+        if (files.isEmpty())
+            throw new NotFoundException("Files not found!", HttpStatus.NOT_FOUND);
+
+        if (!user.getCreatedTasks().contains(task.get()) && user.getRole() == Role.USER)
+            throw new BadRequestException("You have no access.");
+
+        for (TaskFile file : files) {
+            s3Client.deleteObject(bucketName, file.getName());
+            taskFileRepository.delete(file);
+        }
+        task.get().setTaskFiles(null);
+
+        taskFileRepository.deleteAll(files);
+
+        userRepository.saveAndFlush(user);
+        return "Files successfully removed.";
+    }
+
     @Override
     public byte[] downloadFile(String fileName) {
         if(fileName == null)

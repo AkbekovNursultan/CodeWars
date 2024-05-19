@@ -30,6 +30,7 @@ public class TaskMapperImpl implements TaskMapper {
                 response.setId(task.getId());
                 response.setName(task.getName());
                 response.setDifficulty(task.getDifficulty().getName());
+                response.setCreatedDate(task.getCreatedDate());
                 newTasks.add(response);
             }
         }
@@ -61,6 +62,8 @@ public class TaskMapperImpl implements TaskMapper {
         response.setSolved(task.getAnsweredUsers().size());
         response.setCreatedBy(task.getAddedUser().getUsername());
         response.setVerified(task.getApproved());
+        DecimalFormat decimalFormat = new DecimalFormat("#.#");
+        response.setRating(decimalFormat.format(task.getRating()));
         return response;
     }
 
@@ -75,7 +78,9 @@ public class TaskMapperImpl implements TaskMapper {
             response.setId(task.getId());
             response.setName(task.getName());
             response.setDifficulty(task.getDifficulty().getName());
-            response.setRating(task.getRating());
+            response.setCreatedDate(task.getCreatedDate());
+            DecimalFormat decimalFormat = new DecimalFormat("#.#");
+            response.setRating(decimalFormat.format(task.getRating()));
             responseList.add(response);
         }
         return responseList;
@@ -94,8 +99,10 @@ public class TaskMapperImpl implements TaskMapper {
                 response.setName(task.getName());
                 response.setId(task.getId());
                 response.setDifficulty(task.getDifficulty().getName());
-                response.setRating(task.getRating());
+                DecimalFormat decimalFormat = new DecimalFormat("#.#");
+                response.setRating(decimalFormat.format(task.getRating()));
                 response.setCreatedDate(task.getCreatedDate());
+                response.setSolved(task.getSolved());
                 responseList.add(response);
             }
         }
@@ -123,10 +130,7 @@ public class TaskMapperImpl implements TaskMapper {
             }
         }
         if(request.getIsSolved() != null){
-            if(request.getIsSolved()){
-                if(!task.getAnsweredUsers().contains(user))
-                    return false;
-            } else {
+            if(!request.getIsSolved()){
                 if(task.getAnsweredUsers().contains(user))
                     return false;
             }
@@ -142,8 +146,21 @@ public class TaskMapperImpl implements TaskMapper {
             Sort sortByCreatedDateAsc = Sort.by(Sort.Direction.ASC, "createdDate");
             return taskRepository.findAll(sortByCreatedDateAsc);
         }
-        if(sortBy.equalsIgnoreCase("popularity")){
-            return taskRepository.findAllTasksWithAnsweredUsersCount();
+        if(sortBy.equalsIgnoreCase("popular")){
+            Sort sortByPopularity = Sort.by(Sort.Direction.DESC, "solved");
+            return taskRepository.findAll(sortByPopularity);
+        }
+        if(sortBy.equalsIgnoreCase("unpopular")){
+            Sort sortByPopularity = Sort.by(Sort.Direction.ASC, "solved");
+            return taskRepository.findAll(sortByPopularity);
+        }
+        if(sortBy.equalsIgnoreCase("highest")){
+            Sort sortByRating = Sort.by(Sort.Direction.DESC, "rating");
+            return taskRepository.findAll(sortByRating);
+        }
+        if(sortBy.equalsIgnoreCase("lowest")){
+            Sort sortByRating = Sort.by(Sort.Direction.ASC, "rating");
+            return taskRepository.findAll(sortByRating);
         }
         return taskRepository.findAll();
     }

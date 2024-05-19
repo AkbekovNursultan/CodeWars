@@ -24,5 +24,5 @@ public interface AdminService {
 
     List<UserResponse> showAllUsers(String token);
 
-    String addTags(String token, List<String> tagName);
+    String addTags(String token, String tagName);
 }

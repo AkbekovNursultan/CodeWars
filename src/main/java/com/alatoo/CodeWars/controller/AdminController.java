@@ -26,7 +26,7 @@ public class AdminController {
         return adminService.addDifficulty(token, request);
     }
     @PostMapping("/add/tags")
-    private String addTag(@RequestHeader("Authorization") String token, @RequestParam List<String> tagName){
+    private String addTag(@RequestHeader("Authorization") String token, @RequestParam String tagName){
         return adminService.addTags(token, tagName);
     }
     @PostMapping("/add/task")
@@ -36,6 +36,10 @@ public class AdminController {
     @PostMapping("/add/{task_id}")
     public String addTaskFile(@RequestHeader("Authorization") String token,@PathVariable Long task_id , @RequestParam(value = "file") MultipartFile file){
         return taskFileService.addTaskFile(token, task_id, file);
+    }
+    @DeleteMapping("/task/{task_id}/delete_files")
+    public String deleteFiles(@RequestHeader("Authorization") String token, @PathVariable Long task_id){
+        return taskFileService.deleteTaskFiles(token, task_id);
     }
     @GetMapping("/show/task_offers")
     public List<TaskResponse> showAllOffers(@RequestHeader("Authorization") String token){

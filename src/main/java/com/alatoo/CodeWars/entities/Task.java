@@ -20,23 +20,25 @@ public class Task {
     @NotNull private String description;
     @NotNull private String answer;
     private Boolean approved;
-    private Double rating;
+    private Double rating = 0.0;
     private LocalDateTime createdDate;
 
-    @OneToMany(cascade = CascadeType.ALL)
+    @OneToMany(mappedBy = "task",cascade = CascadeType.REMOVE)
     private List<Hint> hints;
 
     @ManyToOne
     private Difficulty difficulty;
-    @ManyToMany(cascade = CascadeType.REMOVE)
+    @ManyToMany(cascade = CascadeType.ALL)
     private List<Tag> tags;
 
     @ManyToMany(cascade = CascadeType.ALL)
     private List<User> answeredUsers;
+    private Integer solved = 0;
     @ManyToOne
     private User addedUser;
     @OneToMany(cascade = CascadeType.ALL)
     private List<TaskFile> taskFiles;
-    @OneToMany
+    @OneToMany(cascade = CascadeType.ALL)
     private List<Review> reviews;
+
 }
