@@ -14,7 +14,7 @@ import com.alatoo.CodeWars.repositories.*;
 import com.alatoo.CodeWars.services.AdminService;
 import com.alatoo.CodeWars.services.AuthService;
 import com.alatoo.CodeWars.services.TaskFileService;
-import jakarta.transaction.Transactional;
+import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -37,19 +37,20 @@ public class AdminServiceImpl implements AdminService {
     private final TagRepository tagRepository;
 
     @Override
-    public String addDifficulty(String token, NewDifficultyRequest request) {
+    public String addDifficultyKyu(String token, NewDifficultyRequest request) {
 
         User user = authService.getUserFromToken(token);
         if(!user.getRole().equals(Role.ADMIN))
             throw new BlockedException("no");
-        Difficulty difficulty = new Difficulty();
+        DifficultyKyu difficultyKyu = new DifficultyKyu();
         if(request.getName() == null)
             throw new BadRequestException("Field 'name' must be filled!");
-        difficulty.setName(request.getName().toUpperCase());
+        difficultyKyu.setName(request.getName().toUpperCase());
         if(request.getPoints() == null)
             throw new BadRequestException("Field 'points' must be filled");
-        difficulty.setPoints(request.getPoints());
-        difficultyRepository.saveAndFlush(difficulty);
+        difficultyKyu.setPointsForTask(request.getPoints());
+        difficultyKyu.setRequiredPoints(request.getRankUpPoints());
+        difficultyRepository.saveAndFlush(difficultyKyu);
         return "New difficulty was added.";
     }
 
@@ -62,10 +63,10 @@ public class AdminServiceImpl implements AdminService {
     }
     @Transactional
     @Override
-    public String delete(String token, Long id) {
+    public String deleteTask(String token, Long id) {
         User admin = authService.getUserFromToken(token);
         if(!admin.getRole().equals(Role.ADMIN))
-            throw new BlockedException("no");
+            throw new BlockedException("You have no permission");
         Optional<Task> task = taskRepository.findById(id);
         if(task.isEmpty())
             throw new NotFoundException("Task not found.", HttpStatus.NOT_FOUND);
@@ -87,21 +88,52 @@ public class AdminServiceImpl implements AdminService {
         }
         task.get().setAddedUser(null);
         if(!task.get().getTags().isEmpty()){
-            for(Tag tag : task.get().getTags()){
-                tag.getTasks().remove(task.get());
+            for(Tag tag : tagRepository.findAll()){
+                if(task.get().getTags().contains(tag)) {
+                    task.get().getTags().remove(tag);
+                    tag.getTasks().remove(task.get());
+                }
             }
         }
-        List<Review> reviewList = reviewRepository.findAll();
-        for(Review review : reviewList){
-            review.getUser().getReviews().remove(review);
-            review.setUser(null);
-            task.get().getReviews().remove(review);
-            reviewRepository.delete(review);
+        for(Review review : reviewRepository.findAll()){
+            if(review.getTask().equals(task.get())) {
+                review.getUser().getReviews().remove(review);
+                review.setUser(null);
+                task.get().getReviews().remove(review);
+                reviewRepository.delete(review);
+            }
+        }
+        for(User user : userRepository.findAll()){
+            if(user.getFavorites().contains(task.get())) {
+                user.getFavorites().remove(task.get());
+                task.get().getMarkedUsers().remove(user);
+                userRepository.save(user);
+            }
         }
         taskRepository.delete(task.get());
         return "Successfully deleted.";
     }
-
+    @Transactional
+    @Override
+    public String deleteReview(String token, Long reviewId){
+        User admin = authService.getUserFromToken(token);
+        if (!admin.getRole().equals(Role.ADMIN))
+            throw new BlockedException("You have no permission");
+        Review review = reviewRepository.findById(reviewId)
+                .orElseThrow(() -> new NotFoundException("Review not found.", HttpStatus.NOT_FOUND));
+        User user = review.getUser();
+        if (user != null) {
+            user.getReviews().remove(review);
+            userRepository.saveAndFlush(user);
+        }
+        Task task = review.getTask();
+        if (task != null) {
+            task.getReviews().remove(review);
+            taskRepository.saveAndFlush(task);
+        }
+        reviewRepository.delete(review);
+        return "Review successfully deleted.";
+    }
     @Override
     public String approveTask(String token, Long taskId) {
         User user = authService.getUserFromToken(token);

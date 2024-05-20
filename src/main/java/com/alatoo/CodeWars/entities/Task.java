@@ -27,12 +27,13 @@ public class Task {
     private List<Hint> hints;
 
     @ManyToOne
-    private Difficulty difficulty;
+    private DifficultyKyu difficulty;
     @ManyToMany(cascade = CascadeType.ALL)
     private List<Tag> tags;
 
     @ManyToMany(cascade = CascadeType.ALL)
     private List<User> answeredUsers;
+
     private Integer solved = 0;
     @ManyToOne
     private User addedUser;
@@ -40,5 +41,7 @@ public class Task {
     private List<TaskFile> taskFiles;
     @OneToMany(cascade = CascadeType.ALL)
     private List<Review> reviews;
+    @ManyToMany
+    private List<User> markedUsers;
 
 }

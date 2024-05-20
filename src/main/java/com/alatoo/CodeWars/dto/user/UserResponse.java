@@ -10,6 +10,7 @@ public class UserResponse {
     private String username;
     private String email;
     private String role;
-    private Integer rank;
+    private String rank;
     private Boolean banned;
+    private String createdTasks;
 }

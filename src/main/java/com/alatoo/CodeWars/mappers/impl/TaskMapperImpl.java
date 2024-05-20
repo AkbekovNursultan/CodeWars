@@ -10,9 +10,8 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Component;
 
 import java.text.DecimalFormat;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 
 @Component
@@ -23,18 +22,43 @@ public class TaskMapperImpl implements TaskMapper {
     @Override
     public List<TaskResponse> newTasksToDtoS() {
         List<Task> allTasks = taskRepository.findAll();
-        List<TaskResponse> newTasks = new ArrayList<>();
+        List<TaskResponse> responseList = new ArrayList<>();
         for(Task task : allTasks){
             if(!task.getApproved()){
-                TaskResponse response = new TaskResponse();
-                response.setId(task.getId());
-                response.setName(task.getName());
-                response.setDifficulty(task.getDifficulty().getName());
-                response.setCreatedDate(task.getCreatedDate());
-                newTasks.add(response);
+                createTaskResponse(responseList, task);
             }
         }
-        return newTasks;
+        return responseList;
+    }
+    @Override
+    public List<TaskResponse> showFavorites(User user){
+        List<TaskResponse> responseList = new ArrayList<>();
+        List<Task> allTasks = taskRepository.findAll();
+        for(Task task : allTasks){
+            if(!task.getApproved())
+                continue;
+            if(!user.getFavorites().contains(task))
+                continue;
+            createTaskResponse(responseList, task);
+        }
+        return responseList;
+    }
+
+    private void createTaskResponse(List<TaskResponse> responseList, Task task) {
+        TaskResponse response = new TaskResponse();
+        response.setId(task.getId());
+        response.setName(task.getName());
+        response.setDifficulty(task.getDifficulty().getName());
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd-MM-yyyy");
+        response.setCreatedDate(task.getCreatedDate().format(formatter));
+        DecimalFormat decimalFormat = new DecimalFormat("#.#");
+        response.setRating(decimalFormat.format(task.getRating()));
+        response.setSolved(task.getSolved());
+        response.setTags(new ArrayList<>());
+        for(Tag tag : task.getTags()) {
+            response.getTags().add(tag.getName());
+        }
+        responseList.add(response);
     }
 
     @Override
@@ -58,7 +82,7 @@ public class TaskMapperImpl implements TaskMapper {
             tags.add(tag.getName());
         }
         response.setTags(tags);
-        response.setPoints(task.getDifficulty().getPoints());
+        response.setPoints(task.getDifficulty().getPointsForTask());
         response.setSolved(task.getAnsweredUsers().size());
         response.setCreatedBy(task.getAddedUser().getUsername());
         response.setVerified(task.getApproved());
@@ -74,14 +98,20 @@ public class TaskMapperImpl implements TaskMapper {
         for(Task task : allTasks){
             if(!task.getApproved())
                 continue;
-            TaskResponse response = new TaskResponse();
-            response.setId(task.getId());
-            response.setName(task.getName());
-            response.setDifficulty(task.getDifficulty().getName());
-            response.setCreatedDate(task.getCreatedDate());
-            DecimalFormat decimalFormat = new DecimalFormat("#.#");
-            response.setRating(decimalFormat.format(task.getRating()));
-            responseList.add(response);
+            createTaskResponse(responseList, task);
+        }
+        return responseList;
+    }
+    @Override
+    public List<TaskResponse> toDtoS(User user) {
+        List<TaskResponse> responseList = new ArrayList<>();
+        List<Task> allTasks = taskRepository.findAll();
+        for(Task task : allTasks){
+            if(!task.getApproved())
+                continue;
+            if(!task.getAddedUser().equals(user))
+                continue;
+            createTaskResponse(responseList, task);
         }
         return responseList;
     }
@@ -101,7 +131,12 @@ public class TaskMapperImpl implements TaskMapper {
                 response.setDifficulty(task.getDifficulty().getName());
                 DecimalFormat decimalFormat = new DecimalFormat("#.#");
                 response.setRating(decimalFormat.format(task.getRating()));
-                response.setCreatedDate(task.getCreatedDate());
+                response.setTags(new ArrayList<>());
+                for(Tag tag : task.getTags()) {
+                    response.getTags().add(tag.getName());
+                }
+                DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd-MM-yyyy");
+                response.setCreatedDate(task.getCreatedDate().format(formatter));
                 response.setSolved(task.getSolved());
                 responseList.add(response);
             }
@@ -158,10 +193,6 @@ public class TaskMapperImpl implements TaskMapper {
             Sort sortByRating = Sort.by(Sort.Direction.DESC, "rating");
             return taskRepository.findAll(sortByRating);
         }
-        if(sortBy.equalsIgnoreCase("lowest")){
-            Sort sortByRating = Sort.by(Sort.Direction.ASC, "rating");
-            return taskRepository.findAll(sortByRating);
-        }
         return taskRepository.findAll();
     }
 
@@ -170,6 +201,8 @@ public class TaskMapperImpl implements TaskMapper {
         List<ReviewDto> responses = new ArrayList<>();
         for(Review review : task.getReviews()){
             ReviewDto response = new ReviewDto();
+            response.setId(review.getId());
+            response.setAuthor(review.getUser().getUsername());
             response.setRating(review.getRating());
             response.setText(review.getText());
             responses.add(response);

@@ -55,7 +55,7 @@ public class AuthServiceImpl implements AuthService {
         user.setRole(Role.valueOf(request.getRole().toUpperCase()));
         if(Role.valueOf(request.getRole()).equals(Role.USER)){
             user.setPoints(0);
-            user.setRank(0);
+            user.setRank("Beginner");
         }
         String code = createCode();
         user.setVerificationCode(code);
@@ -92,6 +92,7 @@ public class AuthServiceImpl implements AuthService {
         user.get().setVerificationCode(null);
         user.get().setImage(null);
         user.get().setBanned(false);
+        user.get().setFavorites(new ArrayList<>());
         userRepository.save(user.get());
         return "Email successfully connected.\nRegistration completed!";
     }
@@ -120,7 +121,7 @@ public class AuthServiceImpl implements AuthService {
         SimpleMailMessage message = new SimpleMailMessage();
         message.setFrom("nursultan20052003@gmail.com");
         message.setTo(email);
-        message.setText("This is link for recovery your password: http://localhost:8080/auth/password_recovery?code=" + code + "\n\nDon't share it!!!");
+        message.setText("This is recovery code for your password: " + code + "\n\nDon't share it!!!");
         message.setSubject("Password recovery.");
         mailSender.send(message);
         user.get().setRecoveryCode(code);

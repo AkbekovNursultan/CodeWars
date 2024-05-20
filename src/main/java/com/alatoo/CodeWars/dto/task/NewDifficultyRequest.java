@@ -8,4 +8,5 @@ import lombok.Setter;
 public class NewDifficultyRequest {
     private String name;
     private Integer points;
+    private Integer rankUpPoints;
 }

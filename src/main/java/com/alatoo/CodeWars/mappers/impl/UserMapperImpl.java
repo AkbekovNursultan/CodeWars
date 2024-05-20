@@ -31,7 +31,7 @@ public class UserMapperImpl implements UserMapper {
         response.setPoints(user.getPoints());
         response.setRank(user.getRank());
         response.setAnsweredTasks(user.getSolvedTasks().size());
-        response.setCreatedTasks(user.getCreatedTasks().size());
+        response.setCreatedTasks("localhost:8080/user/"+user.getId()+"/created_tasks");
         return response;
     }
 
@@ -47,6 +47,7 @@ public class UserMapperImpl implements UserMapper {
             response.setRank(user.getRank());
             response.setBanned(user.getBanned());
             response.setRole(user.getRole().toString().toUpperCase());
+            response.setCreatedTasks("localhost:8080/user/"+user.getId()+"/created_tasks");
             responses.add(response);
         }
         return responses;

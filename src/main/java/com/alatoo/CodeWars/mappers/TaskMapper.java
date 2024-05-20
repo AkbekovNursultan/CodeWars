@@ -16,6 +16,10 @@ public interface TaskMapper {
 
     List<TaskResponse> toDtoS();
     List<TaskResponse> toDtoS(User user, SearchTaskRequest request);
+    List<TaskResponse> toDtoS(User user);
+    List<TaskResponse> showFavorites(User user);
 
     List<ReviewDto> allReviews(Task task);
+
+
 }

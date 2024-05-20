@@ -10,12 +10,13 @@ import java.util.List;
 @Setter
 @Entity
 @Table(name = "difficulties")
-public class Difficulty {
+public class DifficultyKyu {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
     private String name;
-    private Integer points;
+    private Integer pointsForTask;
+    private Integer requiredPoints;
     @OneToMany
     private List<Task> tasks;
 }

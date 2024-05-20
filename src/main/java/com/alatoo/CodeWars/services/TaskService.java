@@ -1,7 +1,7 @@
 package com.alatoo.CodeWars.services;
 
 import com.alatoo.CodeWars.dto.task.*;
-import jakarta.transaction.Transactional;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -23,4 +23,10 @@ public interface TaskService {
     List<ReviewDto> showAllReviews(String token, Long taskId);
 
     List<TaskResponse> search(String token, SearchTaskRequest searchRequest);
+
+    List<TaskResponse> showUserTasks(String token, Long userId);
+
+    String markFavorite(String token, Long taskId);
+
+    List<TaskResponse> showFavorites(String token);
 }

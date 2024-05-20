@@ -11,10 +11,10 @@ import com.alatoo.CodeWars.services.AuthService;
 import com.alatoo.CodeWars.services.TaskService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
-import java.text.DecimalFormat;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -42,10 +42,10 @@ public class TaskServiceImpl implements TaskService {
         if(request.getDescription() == null)
             throw new BadRequestException("Field 'description' must be filled!");
         if(request.getAnswer() == null || request.getAnswer().trim().equals(""))
-            throw new BadRequestException("Parameter 'Answer' mustn't be empty.");
+            throw new BadRequestException("Field 'Answer' mustn't be empty.");
         if(request.getDifficulty() == null || request.getDifficulty().trim().equals(""))
             throw new BadRequestException("Field 'difficulty' mustn't be empty.");
-        Optional<Difficulty> difficulty = difficultyRepository.findByName(request.getDifficulty().toUpperCase());
+        Optional<DifficultyKyu> difficulty = difficultyRepository.findByName(request.getDifficulty().toUpperCase());
         if(difficulty.isEmpty())
             throw new BadRequestException("Difficulty type: " + request.getDifficulty() + " doesn't exist!");
         if(request.getHints().size() > 3)
@@ -85,6 +85,7 @@ public class TaskServiceImpl implements TaskService {
         }
         task.setTaskFiles(new ArrayList<>());
         task.setReviews(new ArrayList<>());
+        task.setMarkedUsers(new ArrayList<>());
         task.setHints(newHints);
         task.setCreatedDate(LocalDateTime.now());
         taskRepository.saveAndFlush(task);
@@ -111,6 +112,41 @@ public class TaskServiceImpl implements TaskService {
         User user = authService.getUserFromToken(token);
         authService.checkAccess(user);
         return taskMapper.toDtoS();
+    }
+    @Override
+    public List<TaskResponse> showUserTasks(String token, Long userId){
+        User user = authService.getUserFromToken(token);
+        authService.checkAccess(user);
+        Optional<User> user1 = userRepository.findById(userId);
+        if(user1.isEmpty())
+            throw new NotFoundException("User not found", HttpStatus.NOT_FOUND);
+        return taskMapper.toDtoS(user1.get());
+    }
+    @Override
+    public String markFavorite(String token, Long taskId) {
+        User user = authService.getUserFromToken(token);
+        authService.checkAccess(user);
+        Optional<Task> task = taskRepository.findById(taskId);
+        String message = "Task successfully marked 'favorite'.";
+        if (task.isEmpty())
+            throw new NotFoundException("Task not found", HttpStatus.NOT_FOUND);
+        if (!user.getFavorites().contains(task.get())){
+            user.getFavorites().add(task.get());
+            task.get().getMarkedUsers().add(user);
+        }else {
+            user.getFavorites().remove(task.get());
+            task.get().getMarkedUsers().remove(user);
+            message = "Task successfully unmarked 'favorite'.";
+        }
+        taskRepository.save(task.get());
+        userRepository.save(user);
+        return message;
+    }
+    @Override
+    public List<TaskResponse> showFavorites(String token){
+        User user = authService.getUserFromToken(token);
+        authService.checkAccess(user);
+        return taskMapper.showFavorites(user);
     }
     @Override
     public List<TaskResponse> search(String token, SearchTaskRequest request){
@@ -141,12 +177,10 @@ public class TaskServiceImpl implements TaskService {
                 if(hint.getReceivedUsers().contains(user))
                     usedHints.add(hint.getHint());
             }
-            int earnedPoints = task.get().getDifficulty().getPoints() - task.get().getDifficulty().getPoints() * usedHints.size() / 10;
-            user.setPoints(user.getPoints() + earnedPoints);
-            String message = "Congratulations! You have found a correct answer!\n" + earnedPoints + " points earned";
-            int previousRank = user.getRank();
-            user.setRank(user.getPoints()/1000);
-            if(previousRank < user.getRank())
+            int earnedPoints = task.get().getDifficulty().getPointsForTask() - task.get().getDifficulty().getPointsForTask() * usedHints.size() / 10;
+            String message = "Congratulations! You have found the correct answer!\n" + earnedPoints + " points earned";
+            String previousRank = user.getRank();
+            if(didUserRankUp(user, earnedPoints))
                 message = message + "\nYour rank has been increased!\n" + previousRank + "--->" + user.getRank();
             user.setSolvedTasks(tasks);
             List<User> users = new ArrayList<>();
@@ -159,10 +193,27 @@ public class TaskServiceImpl implements TaskService {
             userRepository.saveAndFlush(user);
             return message;
         }
-
         return "Incorrect answer.\nTry again.";
     }
-
+    private Boolean didUserRankUp(User user, int earnedPoints){
+        Sort sort = Sort.by(Sort.Direction.ASC, "requiredPoints");
+        List<DifficultyKyu> allRanks = difficultyRepository.findAll(sort);
+        String currentRank = "Beginner";
+        for(DifficultyKyu rank : allRanks){
+            if(rank.getRequiredPoints() <= user.getPoints())
+                currentRank = rank.getName();
+        }
+        String newRank = currentRank;
+        user.setPoints(user.getPoints() + earnedPoints);
+        for(DifficultyKyu rank : allRanks){
+            if(rank.getRequiredPoints() <= user.getPoints())
+                newRank = rank.getName();
+        }
+        if(currentRank.equals(newRank))
+            return false;
+        user.setRank(newRank);
+        return true;
+    }
     @Override
     public String getHint(String token, Long taskId) {
         User user = authService.getUserFromToken(token);
@@ -208,8 +259,10 @@ public class TaskServiceImpl implements TaskService {
         User user = authService.getUserFromToken(token);
         authService.checkAccess(user);
         Optional<Task> task = taskRepository.findById(taskId);
-        if(task.isEmpty() || user.getCreatedTasks().contains(task.get()))
+        if(task.isEmpty())
             throw new NotFoundException("Task not found.", HttpStatus.NOT_FOUND);
+        if(user.getCreatedTasks().contains(task.get()))
+            throw new BadRequestException("You can't rate your own task");
         if(doesReviewExist(task.get(), user)) {
             List<Review> reviewList = reviewRepository.findAll();
             for(Review review : reviewList){
@@ -223,6 +276,10 @@ public class TaskServiceImpl implements TaskService {
         }
         Review review = new Review();
         review.setText(reviewDto.getText());
+        if(reviewDto.getRating() > 5.0)
+            reviewDto.setRating(5.0);
+        if(reviewDto.getRating() < 0.0)
+            reviewDto.setRating(0.0);
         review.setRating(reviewDto.getRating());
         review.setTask(task.get());
         review.setUser(user);

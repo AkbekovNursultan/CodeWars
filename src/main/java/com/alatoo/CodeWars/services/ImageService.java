@@ -8,5 +8,5 @@ public interface ImageService {
 //    byte[] downloadFile(String fileName);
     String deleteFile(String token);
 
-    S3Object getFile(String fileName);
+    S3Object getFile(String token, String fileName);
 }

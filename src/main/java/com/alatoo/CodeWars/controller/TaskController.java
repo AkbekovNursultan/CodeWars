@@ -31,6 +31,14 @@ public class TaskController {
     public TaskDetailsResponse showTaskDetails(@RequestHeader("Authorization") String token, @PathVariable Long task_id){
         return taskService.showById(token, task_id);
     }
+    @PostMapping("/{task_id}/favorite")
+    public String markFavorite(@RequestHeader("Authorization") String token, @PathVariable Long task_id){
+        return taskService.markFavorite(token, task_id);
+    }
+    @GetMapping("/favorites")
+    public List<TaskResponse> showFavorites(@RequestHeader("Authorization") String token){
+        return taskService.showFavorites(token);
+    }
     @GetMapping("/download/{task_id}/{file_id}")
     public ResponseEntity<ByteArrayResource> downloadTaskFile(@PathVariable Long task_id, @PathVariable Long file_id){
         String fileName = taskFileService.getFileName(task_id, file_id);

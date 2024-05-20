@@ -29,7 +29,7 @@ public class User implements UserDetails {
     private String recoveryCode;
     private Integer points;
     private Boolean banned;
-    private Integer rank;
+    private String rank;
 
     @OneToOne(cascade = CascadeType.ALL)
     private Image image;
@@ -41,7 +41,8 @@ public class User implements UserDetails {
     private List<Task> createdTasks;
     @ManyToMany(cascade = CascadeType.ALL)
     private List<Hint> usedHints;
-
+    @ManyToMany
+    private List<Task> favorites;
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
         return List.of(new SimpleGrantedAuthority(role.name()));

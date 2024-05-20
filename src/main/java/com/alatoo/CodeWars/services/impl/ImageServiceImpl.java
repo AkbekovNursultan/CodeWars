@@ -42,7 +42,7 @@ public class ImageServiceImpl implements ImageService {
 
     @Value("${application.bucket.name}")
     private String bucketName;
-    private String path = "http://localhost:8080/profile/image/";
+    private String path = "http://localhost:8080/user/profile/image/";
 
     @Autowired
     private AmazonS3 s3Client;
@@ -113,7 +113,9 @@ public class ImageServiceImpl implements ImageService {
     }
 
     @Override
-    public S3Object getFile(String fileName) {
+    public S3Object getFile(String token, String fileName) {
+        User user = authService.getUserFromToken(token);
+        authService.checkAccess(user);
         return s3Client.getObject(bucketName, fileName);
     }
 

@@ -1,6 +1,7 @@
 package com.alatoo.CodeWars.controller;
 
 import com.alatoo.CodeWars.dto.task.NewTaskRequest;
+import com.alatoo.CodeWars.dto.task.TaskResponse;
 import com.alatoo.CodeWars.dto.user.UserDtoResponse;
 import com.alatoo.CodeWars.services.ImageService;
 import com.alatoo.CodeWars.services.TaskFileService;
@@ -15,6 +16,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.List;
+
 @RestController
 @RequiredArgsConstructor
 @Slf4j
@@ -25,13 +28,17 @@ public class UserController {
     private final TaskService taskService;
     private final TaskFileService taskFileService;
 
-    @GetMapping("/profile/{user_id}")
+    @GetMapping("/{user_id}/profile")
     public UserDtoResponse userInfo(@RequestHeader("Authorization") String token, @PathVariable Long user_id){
         return userService.showUserInfo(token, user_id);
     }
+    @GetMapping("/{user_id}/created_tasks")
+    public List<TaskResponse> userTasks(@RequestHeader("Authorization") String token, @PathVariable Long user_id){
+        return taskService.showUserTasks(token, user_id);
+    }
     @GetMapping("/profile/image/{fileName}")
     public ResponseEntity<InputStreamResource> showImage(@RequestHeader("Authorization") String token, @PathVariable String fileName) {
-        var s3Object = imageService.getFile(fileName);
+        var s3Object = imageService.getFile(token, fileName);
         var content = s3Object.getObjectContent();
         return ResponseEntity.ok()
                 .contentType(MediaType.IMAGE_PNG)
@@ -47,11 +54,11 @@ public class UserController {
         return imageService.deleteFile(token);
     }
 
-    @PostMapping("/task/add")
+    @PostMapping("/add/task")
     public String addTask(@RequestHeader("Authorization") String token, @RequestBody NewTaskRequest request){
         return taskService.addTask(token, request);
     }
-    @PostMapping("/task/{task_id}/file")
+    @PostMapping("/add/{task_id}")
     public String addTaskFile(@RequestHeader("Authorization") String token,@PathVariable Long task_id , @RequestParam(value = "file") MultipartFile file){
         return userService.addTaskFile(token, task_id, file);
     }

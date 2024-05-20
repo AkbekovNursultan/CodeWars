@@ -12,9 +12,7 @@ public class ImageMapperImpl implements ImageMapper {
     @Override
     public ImageResponse toDetailDto(Image image) {
         ImageResponse response = new ImageResponse();
-        response.setId(image.getId());
         response.setPath(image.getPath());
-        response.setName(image.getName());
         response.setUserId(image.getUser().getId());
         return response;
     }

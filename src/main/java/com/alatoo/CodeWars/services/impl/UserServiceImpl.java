@@ -1,6 +1,5 @@
 package com.alatoo.CodeWars.services.impl;
 
-import com.alatoo.CodeWars.dto.task.NewTaskRequest;
 import com.alatoo.CodeWars.dto.user.UserDtoResponse;
 import com.alatoo.CodeWars.entities.*;
 import com.alatoo.CodeWars.enums.Role;

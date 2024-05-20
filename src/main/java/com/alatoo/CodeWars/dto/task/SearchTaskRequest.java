@@ -1,7 +1,5 @@
 package com.alatoo.CodeWars.dto.task;
 
-import com.alatoo.CodeWars.entities.Difficulty;
-import com.alatoo.CodeWars.entities.Tag;
 import lombok.Getter;
 import lombok.Setter;
 

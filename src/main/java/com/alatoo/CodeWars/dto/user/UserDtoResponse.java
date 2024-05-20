@@ -9,10 +9,10 @@ public class UserDtoResponse {
     private Long id;
     private String username;
     private String email;
-    private Integer rank;
+    private String rank;
     private Integer points;
     private ImageResponse image;
     private Integer answeredTasks;
-    private Integer createdTasks;
+    private String createdTasks;
 
 }

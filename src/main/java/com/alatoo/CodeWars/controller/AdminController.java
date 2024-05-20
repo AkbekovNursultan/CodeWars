@@ -2,7 +2,6 @@ package com.alatoo.CodeWars.controller;
 
 import com.alatoo.CodeWars.dto.task.NewDifficultyRequest;
 import com.alatoo.CodeWars.dto.task.NewTaskRequest;
-import com.alatoo.CodeWars.dto.task.TaskDetailsResponse;
 import com.alatoo.CodeWars.dto.task.TaskResponse;
 import com.alatoo.CodeWars.dto.user.UserResponse;
 import com.alatoo.CodeWars.services.AdminService;
@@ -23,7 +22,7 @@ public class AdminController {
     private final TaskFileService taskFileService;
     @PostMapping("/add/difficulty")
     public String addDifficulty(@RequestHeader("Authorization") String token, @RequestBody NewDifficultyRequest request){
-        return adminService.addDifficulty(token, request);
+        return adminService.addDifficultyKyu(token, request);
     }
     @PostMapping("/add/tags")
     private String addTag(@RequestHeader("Authorization") String token, @RequestParam String tagName){
@@ -45,15 +44,19 @@ public class AdminController {
     public List<TaskResponse> showAllOffers(@RequestHeader("Authorization") String token){
         return adminService.showAllOffers(token);
     }
-    @PostMapping("/approve/{task_id}")
+    @PostMapping("/task/{task_id}/approve")
     public String approveTask(@RequestHeader("Authorization") String token, @PathVariable Long task_id){
         return adminService.approveTask(token, task_id);
     }
-    @DeleteMapping("/delete/{task_id}")
+    @DeleteMapping("/task/{task_id}/delete")
     public String deleteTask(@RequestHeader("Authorization") String token, @PathVariable Long task_id){
-        return adminService.delete(token, task_id);
+        return adminService.deleteTask(token, task_id);
     }
-    @GetMapping("/users")
+    @DeleteMapping("/review/{review_id}/delete")
+    public String deleteReview(@RequestHeader("Authorization") String token, @PathVariable Long review_id){
+        return adminService.deleteReview(token, review_id);
+    }
+    @GetMapping("/all_users")
     public List<UserResponse> allUsers(@RequestHeader("Authorization") String token){
         return adminService.showAllUsers(token);
     }

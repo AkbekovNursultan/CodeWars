@@ -9,12 +9,12 @@ import java.util.List;
 
 
 public interface AdminService {
-    String addDifficulty(String token, NewDifficultyRequest request);
+    String addDifficultyKyu(String token, NewDifficultyRequest request);
 
     List<TaskResponse> showAllOffers(String token);
 
     @Transactional
-    String delete(String token, Long task_id);
+    String deleteTask(String token, Long task_id);
 
     String approveTask(String token, Long taskId);
 
@@ -25,4 +25,6 @@ public interface AdminService {
     List<UserResponse> showAllUsers(String token);
 
     String addTags(String token, String tagName);
+
+    String deleteReview(String token, Long reviewId);
 }
