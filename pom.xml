@@ -129,6 +129,11 @@
 			<artifactId>aws-java-sdk</artifactId>
 			<version>1.11.486</version>
 		</dependency>
+		<!--flyway-->
+		<dependency>
+			<groupId>org.flywaydb</groupId>
+			<artifactId>flyway-core</artifactId>
+		</dependency>
 	</dependencies>
 
 	<build>
