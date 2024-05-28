@@ -5,8 +5,10 @@ import com.alatoo.CodeWars.dto.user.UserDtoResponse;
 import jakarta.transaction.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
-public interface UserService {
-    String addTaskFile(String token, Long task_id, MultipartFile file);
+import java.util.Locale;
 
-    UserDtoResponse showUserInfo(String token, Long userId);
+public interface UserService {
+    String addTaskFile(String token, Long task_id, MultipartFile file, Locale locale);
+
+    UserDtoResponse showUserInfo(String token, Long userId, Locale locale);
 }

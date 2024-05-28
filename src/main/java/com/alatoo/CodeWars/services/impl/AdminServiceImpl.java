@@ -14,6 +14,8 @@ import com.alatoo.CodeWars.repositories.*;
 import com.alatoo.CodeWars.services.AdminService;
 import com.alatoo.CodeWars.services.AuthService;
 import com.alatoo.CodeWars.services.TaskFileService;
+import org.springframework.context.MessageSource;
+import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -21,6 +23,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 
 @Service
@@ -35,41 +38,42 @@ public class AdminServiceImpl implements AdminService {
     private final UserRepository userRepository;
     private final UserMapper userMapper;
     private final TagRepository tagRepository;
+    private final MessageSource messageSource;
 
     @Override
-    public String addDifficultyKyu(String token, NewDifficultyRequest request) {
+    public String addDifficultyKyu(String token, NewDifficultyRequest request, Locale locale) {
 
         User user = authService.getUserFromToken(token);
         if(!user.getRole().equals(Role.ADMIN))
-            throw new BlockedException("no");
+            throw new BlockedException(getMessage("not.admin"));
         DifficultyKyu difficultyKyu = new DifficultyKyu();
         if(request.getName() == null)
-            throw new BadRequestException("Field 'name' must be filled!");
+            throw new BadRequestException(getMessage("add.empty.error", new Object[]{"name"}));
         difficultyKyu.setName(request.getName().toUpperCase());
         if(request.getPoints() == null)
-            throw new BadRequestException("Field 'points' must be filled");
+            throw new BadRequestException(getMessage("add.empty.error", new Object[]{"points"}));
         difficultyKyu.setPointsForTask(request.getPoints());
         difficultyKyu.setRequiredPoints(request.getRankUpPoints());
         difficultyRepository.saveAndFlush(difficultyKyu);
-        return "New difficulty was added.";
+        return getMessage("admin.add.diff");
     }
 
     @Override
-    public List<TaskResponse> showAllOffers(String token) {
+    public List<TaskResponse> showAllOffers(String token, Locale locale) {
         User user = authService.getUserFromToken(token);
         if(!user.getRole().equals(Role.ADMIN))
-            throw new BlockedException("no");
+            throw new BlockedException(getMessage("not.admin"));
         return taskMapper.newTasksToDtoS();
     }
     @Transactional
     @Override
-    public String deleteTask(String token, Long id) {
+    public String deleteTask(String token, Long id, Locale locale) {
         User admin = authService.getUserFromToken(token);
         if(!admin.getRole().equals(Role.ADMIN))
-            throw new BlockedException("You have no permission");
+            throw new BlockedException(getMessage("not.admin"));
         Optional<Task> task = taskRepository.findById(id);
         if(task.isEmpty())
-            throw new NotFoundException("Task not found.", HttpStatus.NOT_FOUND);
+            throw new NotFoundException(getMessage("task.not.found"), HttpStatus.NOT_FOUND);
         task.get().setAddedUser(null);
         if(task.get().getDifficulty() != null)
             task.get().getDifficulty().getTasks().remove(task.get());
@@ -78,7 +82,7 @@ public class AdminServiceImpl implements AdminService {
             user1.getSolvedTasks().remove(task.get());
         }
         if(task.get().getTaskFiles() != null && !task.get().getTaskFiles().isEmpty())
-            taskFileService.deleteTaskFiles(token, id);
+            taskFileService.deleteTaskFiles(token, id, locale);
         task.get().setAnsweredUsers(null);
         for(User user1 : userRepository.findAll()){
             List<Task> newList = user1.getCreatedTasks();
@@ -111,16 +115,16 @@ public class AdminServiceImpl implements AdminService {
             }
         }
         taskRepository.delete(task.get());
-        return "Successfully deleted.";
+        return getMessage("delete", new Object[]{"Task"});
     }
     @Transactional
     @Override
-    public String deleteReview(String token, Long reviewId){
+    public String deleteReview(String token, Long reviewId, Locale locale){
         User admin = authService.getUserFromToken(token);
         if (!admin.getRole().equals(Role.ADMIN))
-            throw new BlockedException("You have no permission");
+            throw new BlockedException(getMessage("not.admin"));
         Review review = reviewRepository.findById(reviewId)
-                .orElseThrow(() -> new NotFoundException("Review not found.", HttpStatus.NOT_FOUND));
+                .orElseThrow(() -> new NotFoundException(getMessage("review.not.found"), HttpStatus.NOT_FOUND));
         User user = review.getUser();
         if (user != null) {
             user.getReviews().remove(review);
@@ -132,66 +136,72 @@ public class AdminServiceImpl implements AdminService {
             taskRepository.saveAndFlush(task);
         }
         reviewRepository.delete(review);
-        return "Review successfully deleted.";
+        return getMessage("review.delete");
     }
     @Override
-    public String approveTask(String token, Long taskId) {
+    public String approveTask(String token, Long taskId, Locale locale) {
         User user = authService.getUserFromToken(token);
         if(!user.getRole().equals(Role.ADMIN))
-            throw new BlockedException("no");
+            throw new BlockedException(getMessage("not.admin"));
         Optional<Task> task = taskRepository.findById(taskId);
         if(task.isEmpty() || task.get().getApproved())
-            throw new NotFoundException("Task not found.", HttpStatus.NOT_FOUND);
+            throw new NotFoundException(getMessage("task.not.found"), HttpStatus.NOT_FOUND);
         task.get().setApproved(true);
         taskRepository.saveAndFlush(task.get());
-        return "Task was successfully approved.";
+        return getMessage("approve");
     }
 
     @Override
-    public String banUser(String token, Long userId) {
+    public String banUser(String token, Long userId, Locale locale) {
         User admin = authService.getUserFromToken(token);
         if(!admin.getRole().equals(Role.ADMIN))
-            throw new BlockedException("no");
+            throw new BlockedException(getMessage("not.admin"));
         Optional<User> user = userRepository.findById(userId);
         if(user.isEmpty() || user.get().getRole().equals(Role.ADMIN) || user.get().getBanned())
-            throw new NotFoundException("User not found.", HttpStatus.NOT_FOUND);
+            throw new NotFoundException(getMessage("user.not.found"), HttpStatus.NOT_FOUND);
         user.get().setBanned(true);
         String name = user.get().getUsername();
         userRepository.saveAndFlush(user.get());
-        return "User - "+ name + " was successfully banned.";
+        return getMessage("ban", new Object[]{name});
     }
 
     @Override
-    public String unbanUser(String token, Long userId) {
+    public String unbanUser(String token, Long userId, Locale locale) {
         User admin = authService.getUserFromToken(token);
         if(!admin.getRole().equals(Role.ADMIN))
-            throw new BlockedException("no");
+            throw new BlockedException(getMessage("not.admin"));
         Optional<User> user = userRepository.findById(userId);
         if(user.isEmpty() || user.get().getRole().equals(Role.ADMIN) || !user.get().getBanned())
-            throw new NotFoundException("User not found.", HttpStatus.NOT_FOUND);
+            throw new NotFoundException(getMessage("user.not.found"), HttpStatus.NOT_FOUND);
         user.get().setBanned(false);
         String name = user.get().getUsername();
         userRepository.saveAndFlush(user.get());
-        return "User - "+ name + " was successfully unbanned.";
+        return getMessage("unban", new Object[]{name});
     }
 
     @Override
-    public List<UserResponse> showAllUsers(String token) {
+    public List<UserResponse> showAllUsers(String token, Locale locale) {
         User admin = authService.getUserFromToken(token);
         if(!admin.getRole().equals(Role.ADMIN))
-            throw new BlockedException("no");
+            throw new BlockedException(getMessage("not.admin"));
         return userMapper.allUsers();
     }
 
     @Override
-    public String addTags(String token, String tagName) {
+    public String addTags(String token, String tagName, Locale locale) {
         User user = authService.getUserFromToken(token);
         if(!user.getRole().equals(Role.ADMIN))
-            throw new BlockedException("Nah");
+            throw new BlockedException(getMessage("not.admin"));
         Tag tag = new Tag();
         tag.setName(tagName);
         tag.setTasks(new ArrayList<>());
         tagRepository.save(tag);
-        return "Tag saved";
+        return getMessage("admin.add.tag");
+    }
+    private String getMessage(String code){
+        return messageSource.getMessage(code, null, LocaleContextHolder.getLocale());
+    }
+    private String getMessage(String code, Object[] args){
+        return messageSource.getMessage(code, args, LocaleContextHolder.getLocale());
     }
 }

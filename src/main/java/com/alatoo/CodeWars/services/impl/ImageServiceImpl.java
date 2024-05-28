@@ -21,6 +21,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.MessageSource;
+import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -30,6 +32,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.Locale;
 import java.util.Optional;
 
 @Service
@@ -39,7 +42,7 @@ public class ImageServiceImpl implements ImageService {
     private final AuthService authService;
     private final ImageRepository imageRepository;
     private final UserRepository userRepository;
-
+    private final MessageSource messageSource;
     @Value("${application.bucket.name}")
     private String bucketName;
     private String path = "http://localhost:8080/user/profile/image/";
@@ -48,13 +51,13 @@ public class ImageServiceImpl implements ImageService {
     private AmazonS3 s3Client;
 
     @Override
-    public String upload(String token, MultipartFile file) {
+    public String upload(String token, MultipartFile file, Locale locale) {
         User user = authService.getUserFromToken(token);
         if(user.getRole() != Role.USER)
-            throw new BadRequestException("You can't do this.");
+            throw new BadRequestException(getMessage("not.admin"));
         authService.checkAccess(user);
         if(user.getImage() != null) {
-            deleteFile(token);
+            deleteFile(token, locale);
             imageRepository.deleteById(user.getImage().getId());
         }
         Image image = saveImage(file);
@@ -62,7 +65,7 @@ public class ImageServiceImpl implements ImageService {
         image.setUser(user);
         imageRepository.save(image);
         userRepository.saveAndFlush(user);
-        return "File uploaded : " + image.getName();
+        return getMessage("file.add");
     }
 
     private Image saveImage(MultipartFile file) {
@@ -94,22 +97,22 @@ public class ImageServiceImpl implements ImageService {
 //        return null;
 //    }
     @Override
-    public String deleteFile(String token) {
+    public String deleteFile(String token, Locale locale) {
         User user = authService.getUserFromToken(token);
         if(user.getRole() != Role.USER)
-            throw new BadRequestException("You can't do this.");
+            throw new BadRequestException(getMessage("not.admin"));
         authService.checkAccess(user);
         Optional<Image> image = imageRepository.findByUser(user);
         System.out.println(image);
         if(image.isEmpty())
-            throw new NotFoundException("This image not found!", HttpStatus.NOT_FOUND);
+            throw new NotFoundException(getMessage("image.not.found"), HttpStatus.NOT_FOUND);
         String fileName = image.get().getName();
         user.setImage(null);
         image.get().setUser(null);
         userRepository.saveAndFlush(user);
         imageRepository.delete(image.get());
         s3Client.deleteObject(bucketName, fileName);
-        return fileName + " removed ...";
+        return getMessage("files.delete");
     }
 
     @Override
@@ -128,5 +131,11 @@ public class ImageServiceImpl implements ImageService {
             log.error("Error converting multipartFile to file", e);
         }
         return convertedFile;
+    }
+    private String getMessage(String code){
+        return messageSource.getMessage(code, null, LocaleContextHolder.getLocale());
+    }
+    private String getMessage(String code, Object[] args){
+        return messageSource.getMessage(code, args, LocaleContextHolder.getLocale());
     }
 }

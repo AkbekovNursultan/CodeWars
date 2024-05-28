@@ -11,6 +11,8 @@ import com.alatoo.CodeWars.services.AuthService;
 import com.alatoo.CodeWars.services.TaskService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.MessageSource;
+import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -18,6 +20,7 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 @Service
 @Slf4j
@@ -31,25 +34,25 @@ public class TaskServiceImpl implements TaskService {
     private final HintRepository hintRepository;
     private final TagRepository tagRepository;
     private final ReviewRepository reviewRepository;
-
+    private final MessageSource messageSource;
     @Override
-    public String addTask(String token, NewTaskRequest request) {
+    public String addTask(String token, NewTaskRequest request, Locale locale) {
         User user = authService.getUserFromToken(token);
         authService.checkAccess(user);
-        String message = "The task addition was applied.\n It needs to be accepted by admins.";
+        String message = getMessage("user.add.task");
         if(request.getName() == null)
-            throw new BadRequestException("Field 'name' must be filled!");
+            throw new BadRequestException(getMessage("add.empty.error", new Object[]{"'name'"}));
         if(request.getDescription() == null)
-            throw new BadRequestException("Field 'description' must be filled!");
+            throw new BadRequestException(getMessage("add.empty.error", new Object[]{"'description'"}));
         if(request.getAnswer() == null || request.getAnswer().trim().equals(""))
-            throw new BadRequestException("Field 'Answer' mustn't be empty.");
+            throw new BadRequestException(getMessage("add.empty.error", new Object[]{"'answer'"}));
         if(request.getDifficulty() == null || request.getDifficulty().trim().equals(""))
-            throw new BadRequestException("Field 'difficulty' mustn't be empty.");
+            throw new BadRequestException(getMessage("add.empty.error", new Object[]{"'difficulty'"}));
         Optional<DifficultyKyu> difficulty = difficultyRepository.findByName(request.getDifficulty().toUpperCase());
         if(difficulty.isEmpty())
-            throw new BadRequestException("Difficulty type: " + request.getDifficulty() + " doesn't exist!");
+            throw new BadRequestException(getMessage("difficulty.not.found"));
         if(request.getHints().size() > 3)
-            throw new BadRequestException("Max number of hints is 3.");
+            throw new BadRequestException(getMessage("hints.max"));
         Task task = new Task();
         task.setName(request.getName());
         task.setDescription(request.getDescription());
@@ -57,7 +60,7 @@ public class TaskServiceImpl implements TaskService {
         task.setAddedUser(user);
         task.setApproved(false);
         if(user.getRole().equals(Role.ADMIN)) {
-            message = "The task was added successfully";
+            message = getMessage("admin.add.task");
             task.setApproved(true);
         }
         task.setAnswer(request.getAnswer());
@@ -97,75 +100,75 @@ public class TaskServiceImpl implements TaskService {
     }
 
     @Override
-    public TaskDetailsResponse showById(String token, Long id) {
+    public TaskDetailsResponse showById(String token, Long id, Locale locale) {
         User user = authService.getUserFromToken(token);
         authService.checkAccess(user);
         Optional<Task> task = taskRepository.findById(id);
         if(task.isEmpty())
-            throw new NotFoundException("Task not found", HttpStatus.NOT_FOUND);
+            throw new NotFoundException(getMessage("task.not.found"), HttpStatus.NOT_FOUND);
         if(user.getRole().equals(Role.USER) && !task.get().getApproved())
-            throw new NotFoundException("Task not found", HttpStatus.NOT_FOUND);
+            throw new NotFoundException(getMessage("task.not.found"), HttpStatus.NOT_FOUND);
         return taskMapper.taskDetails(task.get());
     }
     @Override
-    public List<TaskResponse> showAllTasks(String token){
+    public List<TaskResponse> showAllTasks(String token, Locale locale){
         User user = authService.getUserFromToken(token);
         authService.checkAccess(user);
         return taskMapper.toDtoS();
     }
     @Override
-    public List<TaskResponse> showUserTasks(String token, Long userId){
+    public List<TaskResponse> showUserTasks(String token, Long userId, Locale locale){
         User user = authService.getUserFromToken(token);
         authService.checkAccess(user);
         Optional<User> user1 = userRepository.findById(userId);
         if(user1.isEmpty())
-            throw new NotFoundException("User not found", HttpStatus.NOT_FOUND);
+            throw new NotFoundException(getMessage("user.not.found"), HttpStatus.NOT_FOUND);
         return taskMapper.toDtoS(user1.get());
     }
     @Override
-    public String markFavorite(String token, Long taskId) {
+    public String markFavorite(String token, Long taskId, Locale locale) {
         User user = authService.getUserFromToken(token);
         authService.checkAccess(user);
         Optional<Task> task = taskRepository.findById(taskId);
-        String message = "Task successfully marked 'favorite'.";
+        String message = getMessage("task.mark");
         if (task.isEmpty())
-            throw new NotFoundException("Task not found", HttpStatus.NOT_FOUND);
+            throw new NotFoundException(getMessage("task.not.found"), HttpStatus.NOT_FOUND);
         if (!user.getFavorites().contains(task.get())){
             user.getFavorites().add(task.get());
             task.get().getMarkedUsers().add(user);
         }else {
             user.getFavorites().remove(task.get());
             task.get().getMarkedUsers().remove(user);
-            message = "Task successfully unmarked 'favorite'.";
+            message = getMessage("task.unmark");
         }
         taskRepository.save(task.get());
         userRepository.save(user);
         return message;
     }
     @Override
-    public List<TaskResponse> showFavorites(String token){
+    public List<TaskResponse> showFavorites(String token, Locale locale){
         User user = authService.getUserFromToken(token);
         authService.checkAccess(user);
         return taskMapper.showFavorites(user);
     }
     @Override
-    public List<TaskResponse> search(String token, SearchTaskRequest request){
+    public List<TaskResponse> search(String token, SearchTaskRequest request, Locale locale){
         User user = authService.getUserFromToken(token);
         authService.checkAccess(user);
         return taskMapper.toDtoS(user, request);
     }
 
     @Override
-    public String attempt(String token, Long taskId, String answer) {
+    public String attempt(String token, Long taskId, String answer, Locale locale) {
         User user = authService.getUserFromToken(token);
         authService.checkAccess(user);
         Optional<Task> task = taskRepository.findById(taskId);
         if(task.isEmpty())
-            throw new NotFoundException("Task not found.", HttpStatus.NOT_FOUND);
+            throw new NotFoundException(getMessage("task.not.found"), HttpStatus.NOT_FOUND);
         if(user.getCreatedTasks().contains(task.get()))
-            throw new BadRequestException("You can't answer to your own task");
+            throw new BadRequestException(getMessage("task.error1"));
         if(user.getSolvedTasks().contains(task.get()))
-            throw new BadRequestException("You have already done this task");
+            throw new BadRequestException(getMessage("task.error2"));
         if(task.get().getAnswer().equals(answer)){
             List<Task> tasks = new ArrayList<>();
             if(!user.getSolvedTasks().isEmpty())
@@ -178,10 +181,10 @@ public class TaskServiceImpl implements TaskService {
                     usedHints.add(hint.getHint());
             }
             int earnedPoints = task.get().getDifficulty().getPointsForTask() - task.get().getDifficulty().getPointsForTask() * usedHints.size() / 10;
-            String message = "Congratulations! You have found the correct answer!\n" + earnedPoints + " points earned";
+            String message = getMessage("attempt.success", new Object[]{earnedPoints});
             String previousRank = user.getRank();
             if(didUserRankUp(user, earnedPoints))
-                message = message + "\nYour rank has been increased!\n" + previousRank + "--->" + user.getRank();
+                message = message + getMessage("rankUp", new Object[]{previousRank, user.getRank()});
             user.setSolvedTasks(tasks);
             List<User> users = new ArrayList<>();
             if(!task.get().getAnsweredUsers().isEmpty())
@@ -193,7 +196,7 @@ public class TaskServiceImpl implements TaskService {
             userRepository.saveAndFlush(user);
             return message;
         }
-        return "Incorrect answer.\nTry again.";
+        return getMessage("fail");
     }
     private Boolean didUserRankUp(User user, int earnedPoints){
         Sort sort = Sort.by(Sort.Direction.ASC, "requiredPoints");
@@ -215,21 +218,21 @@ public class TaskServiceImpl implements TaskService {
         return true;
     }
     @Override
-    public String getHint(String token, Long taskId) {
+    public String getHint(String token, Long taskId, Locale locale) {
         User user = authService.getUserFromToken(token);
         authService.checkAccess(user);
         if(user.getRole().equals(Role.ADMIN))
-            throw new BadRequestException("Why?");
+            throw new BadRequestException(getMessage("not.admin"));
         Optional<Task> task = taskRepository.findById(taskId);
         if(task.isEmpty())
-            throw new NotFoundException("Task not found.", HttpStatus.NOT_FOUND);
+            throw new NotFoundException(getMessage("task.not.found"), HttpStatus.NOT_FOUND);
         List<Hint> hints = new ArrayList<>();
         for(Hint hint : task.get().getHints()){
             if(!hint.getReceivedUsers().contains(user))
                 hints.add(hint);
         }
         if(hints.isEmpty())
-            return "You have run out of hints.";
+            return getMessage("no.hints");
         List<User> receivedUsers = hints.get(0).getReceivedUsers();
         receivedUsers.add(user);
         hints.get(0).setReceivedUsers(receivedUsers);
@@ -238,14 +241,14 @@ public class TaskServiceImpl implements TaskService {
     }
 
     @Override
-    public List<String> getHints(String token, Long taskId) {
+    public List<String> getHints(String token, Long taskId, Locale locale) {
         User user = authService.getUserFromToken(token);
         authService.checkAccess(user);
         if(user.getRole().equals(Role.ADMIN))
-            throw new BadRequestException("Why?");
+            throw new BadRequestException(getMessage("not.admin"));
         Optional<Task> task = taskRepository.findById(taskId);
         if(task.isEmpty())
-            throw new NotFoundException("Task not found.", HttpStatus.NOT_FOUND);
+            throw new NotFoundException(getMessage("task.not.found"), HttpStatus.NOT_FOUND);
         List<String> hints = new ArrayList<>();
         for(Hint hint : task.get().getHints()){
             if(hint.getReceivedUsers().contains(user))
@@ -255,14 +258,14 @@ public class TaskServiceImpl implements TaskService {
     }
 
     @Override
-    public String addReview(String token, Long taskId, ReviewDto reviewDto) {
+    public String addReview(String token, Long taskId, ReviewDto reviewDto, Locale locale) {
         User user = authService.getUserFromToken(token);
         authService.checkAccess(user);
         Optional<Task> task = taskRepository.findById(taskId);
         if(task.isEmpty())
-            throw new NotFoundException("Task not found.", HttpStatus.NOT_FOUND);
+            throw new NotFoundException(getMessage("task.not.found"), HttpStatus.NOT_FOUND);
         if(user.getCreatedTasks().contains(task.get()))
-            throw new BadRequestException("You can't rate your own task");
+            throw new BadRequestException(getMessage("task.error3"));
         if(doesReviewExist(task.get(), user)) {
             List<Review> reviewList = reviewRepository.findAll();
             for(Review review : reviewList){
@@ -289,7 +292,7 @@ public class TaskServiceImpl implements TaskService {
         task.get().setRating(calculateRating(taskRepository.save(task.get())));
         userRepository.save(user);
         taskRepository.save(task.get());
-        return "Done";
+        return getMessage("review.add");
     }
     private Double calculateRating(Task task){
         Double result = 0.0;
@@ -308,12 +311,18 @@ public class TaskServiceImpl implements TaskService {
     }
 
     @Override
-    public List<ReviewDto> showAllReviews(String token, Long taskId) {
+    public List<ReviewDto> showAllReviews(String token, Long taskId, Locale locale) {
         User user = authService.getUserFromToken(token);
         authService.checkAccess(user);
         Optional<Task> task = taskRepository.findById(taskId);
         if(task.isEmpty())
-            throw new NotFoundException("Task not found", HttpStatus.NOT_FOUND);
+            throw new NotFoundException(getMessage("task.not.found"), HttpStatus.NOT_FOUND);
         return taskMapper.allReviews(task.get());
+    }
+    private String getMessage(String code){
+        return messageSource.getMessage(code, null, LocaleContextHolder.getLocale());
+    }
+    private String getMessage(String code, Object[] args){
+        return messageSource.getMessage(code, args, LocaleContextHolder.getLocale());
     }
 }

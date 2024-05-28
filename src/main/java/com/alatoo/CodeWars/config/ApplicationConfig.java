@@ -37,5 +37,4 @@ public class ApplicationConfig {
     public PasswordEncoder encoder(){
         return new BCryptPasswordEncoder();
     }
-
 }

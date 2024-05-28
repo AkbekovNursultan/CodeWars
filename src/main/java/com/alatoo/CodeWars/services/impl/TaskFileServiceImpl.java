@@ -21,6 +21,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.MessageSource;
+import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -30,6 +32,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 
 @Service
@@ -40,20 +43,22 @@ public class TaskFileServiceImpl implements TaskFileService {
     private final TaskRepository taskRepository;
     private final TaskFileRepository taskFileRepository;
     private final UserRepository userRepository;
+    private final MessageSource messageSource;
+
     @Value("${application.bucket.name}")
     private String bucketName;
 
     @Autowired
     private AmazonS3 s3Client;
     @Override
-    public String addTaskFile(String token, Long id, MultipartFile file) {
+    public String addTaskFile(String token, Long id, MultipartFile file, Locale locale) {
         User user = authService.getUserFromToken(token);
         authService.checkAccess(user);
         if(!user.getRole().equals(Role.ADMIN))
-            throw new BlockedException("no");
+            throw new BlockedException(getMessage("not.admin"));
         Optional<Task> task = taskRepository.findById(id);
         if(task.isEmpty())
-            throw new NotFoundException("404", HttpStatus.NOT_FOUND);
+            throw new NotFoundException(getMessage("task.not.found"), HttpStatus.NOT_FOUND);
         if(file != null) {
             TaskFile taskFile = saveFile(task.get(), file);
             List<TaskFile> taskFiles = new ArrayList<>();
@@ -62,7 +67,7 @@ public class TaskFileServiceImpl implements TaskFileService {
             task.get().setTaskFiles(taskFiles);
             taskRepository.saveAndFlush(task.get());
         }
-        return "Done";
+        return getMessage("file.add");
     }
 
     private TaskFile saveFile(Task task , MultipartFile file) {
@@ -84,7 +89,7 @@ public class TaskFileServiceImpl implements TaskFileService {
     public String getFileName(Long taskId, Long fileId) {
         Optional<Task> task = taskRepository.findById(taskId);
         if(task.isEmpty())
-            throw new NotFoundException("Task Not Found", HttpStatus.NOT_FOUND);
+            throw new NotFoundException(getMessage("task.not.found"), HttpStatus.NOT_FOUND);
         String fileName = null;
         for(TaskFile file : task.get().getTaskFiles()){
             if(file.getId().equals(fileId)){
@@ -92,24 +97,24 @@ public class TaskFileServiceImpl implements TaskFileService {
             }
         }
         if(fileName == null){
-            throw new NotFoundException("File Not Found.", HttpStatus.NOT_FOUND);
+            throw new NotFoundException(getMessage("files.not.found"), HttpStatus.NOT_FOUND);
         }
         return fileName;
     }
     @Override
-    public String deleteTaskFiles(String token, Long taskId) {
+    public String deleteTaskFiles(String token, Long taskId, Locale locale) {
         User user = authService.getUserFromToken(token);
         authService.checkAccess(user);
         Optional<Task> task = taskRepository.findById(taskId);
         if (task.isEmpty())
-            throw new NotFoundException("Task not found.", HttpStatus.NOT_FOUND);
+            throw new NotFoundException(getMessage("task.not.found"), HttpStatus.NOT_FOUND);
 
         List<TaskFile> files = taskFileRepository.findByTask(task.get());
         if (files.isEmpty())
-            throw new NotFoundException("Files not found!", HttpStatus.NOT_FOUND);
+            throw new NotFoundException(getMessage("files.not.found"), HttpStatus.NOT_FOUND);
 
         if (!user.getCreatedTasks().contains(task.get()) && user.getRole() == Role.USER)
-            throw new BadRequestException("You have no access.");
+            throw new BadRequestException(getMessage("not.your.task"));
 
         for (TaskFile file : files) {
             s3Client.deleteObject(bucketName, file.getName());
@@ -120,13 +125,13 @@ public class TaskFileServiceImpl implements TaskFileService {
         taskFileRepository.deleteAll(files);
 
         userRepository.saveAndFlush(user);
-        return "Files successfully removed.";
+        return getMessage("files.delete");
     }
 
     @Override
     public byte[] downloadFile(String fileName) {
         if(fileName == null)
-            throw new NotFoundException("No files", HttpStatus.NOT_FOUND);
+            throw new NotFoundException(getMessage("files.not.found"), HttpStatus.NOT_FOUND);
         S3Object s3Object = s3Client.getObject(bucketName, fileName);
         S3ObjectInputStream inputStream = s3Object.getObjectContent();
         try {
@@ -146,5 +151,10 @@ public class TaskFileServiceImpl implements TaskFileService {
         }
         return convertedFile;
     }
-
+    private String getMessage(String code){
+        return messageSource.getMessage(code, null, LocaleContextHolder.getLocale());
+    }
+    private String getMessage(String code, Object[] args){
+        return messageSource.getMessage(code, args, LocaleContextHolder.getLocale());
+    }
 }

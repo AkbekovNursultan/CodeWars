@@ -16,6 +16,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.MessageSource;
+import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -25,6 +27,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 
 @Service
@@ -33,11 +36,10 @@ import java.util.Optional;
 public class UserServiceImpl implements UserService {
     private final TaskRepository taskRepository;
     private final AuthService authService;
-    private final DifficultyRepository difficultyRepository;
     private final TaskFileRepository taskFileRepository;
     private final UserRepository userRepository;
-    private final HintRepository hintRepository;
     private final UserMapper userMapper;
+    private final MessageSource messageSource;
 
     @Value("${application.bucket.name}")
     private String bucketName;
@@ -46,26 +48,26 @@ public class UserServiceImpl implements UserService {
     @Autowired
     private AmazonS3 s3Client;
     @Override
-    public UserDtoResponse showUserInfo(String token, Long userId) {
+    public UserDtoResponse showUserInfo(String token, Long userId, Locale locale) {
         User user = authService.getUserFromToken(token);
         authService.checkAccess(user);
         Optional<User> user1 = userRepository.findById(userId);
         if(user1.isEmpty())
-            throw new NotFoundException("User not found.", HttpStatus.NOT_FOUND);
+            throw new NotFoundException(getMessage("user.not.found"), HttpStatus.NOT_FOUND);
         return userMapper.toDto(user1.get());
     }
 
     @Override
-    public String addTaskFile(String token, Long id, MultipartFile file) {
+    public String addTaskFile(String token, Long id, MultipartFile file, Locale locale) {
         User user = authService.getUserFromToken(token);
         authService.checkAccess(user);
         if(user.getRole().equals(Role.ADMIN))
-            throw new BlockedException("no");
+            throw new BlockedException(getMessage("not.admin"));
         Optional<Task> task = taskRepository.findById(id);
         if(task.isEmpty() || !user.getCreatedTasks().contains(task.get()))
-            throw new NotFoundException("Task not found", HttpStatus.NOT_FOUND);
+            throw new NotFoundException(getMessage("task.not.found"), HttpStatus.NOT_FOUND);
         if(!task.get().getApproved())
-            throw new BadRequestException("Task hasn't been accepted yet, Wait.");
+            throw new BadRequestException(getMessage("not.approved"));
         if(file != null) {
             TaskFile taskFile = saveFile(task.get(), file);
             List<TaskFile> taskFiles = new ArrayList<>();
@@ -78,7 +80,7 @@ public class UserServiceImpl implements UserService {
             task.get().setTaskFiles(taskFiles);
             taskRepository.saveAndFlush(task.get());
         }
-        return "Done";
+        return getMessage("file.add");
     }
 
     private TaskFile saveFile(Task task , MultipartFile file) {
@@ -105,5 +107,11 @@ public class UserServiceImpl implements UserService {
             log.error("Error converting multipartFile to file", e);
         }
         return convertedFile;
+    }
+    private String getMessage(String code){
+        return messageSource.getMessage(code, null, LocaleContextHolder.getLocale());
+    }
+    private String getMessage(String code, Object[] args){
+        return messageSource.getMessage(code, args, LocaleContextHolder.getLocale());
     }
 }

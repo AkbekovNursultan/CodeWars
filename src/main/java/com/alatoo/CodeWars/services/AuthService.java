@@ -6,18 +6,20 @@ import com.alatoo.CodeWars.dto.auth.RecoveryRequest;
 import com.alatoo.CodeWars.dto.auth.RegisterRequest;
 import com.alatoo.CodeWars.entities.User;
 
+import java.util.Locale;
+
 public interface AuthService {
-    String register(RegisterRequest request);
+    String register(RegisterRequest request, Locale locale);
 
-    String confirm(String code);
+    String confirm(String code, Locale locale);
 
-    LoginResponse login(LoginRequest request);
+    LoginResponse login(LoginRequest request, Locale locale);
 
     User getUserFromToken(String token);
 
-    String recovery(String email);
+    String recovery(String email, Locale locale);
 
-    String recoverPassword(String code, RecoveryRequest request);
+    String recoverPassword(String code, RecoveryRequest request, Locale locale);
 
     void checkAccess(User user);
 }
